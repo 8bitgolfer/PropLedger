@@ -11,6 +11,7 @@ type NBAPlayer = { id: string; name: string; team: string; teamId?: string; poin
 type Team = { id: string; abbreviation: string; name: string }
 type ScheduleGame = { id: string; date: string; tipoff: string; teams: Team[]; completed: boolean }
 type ScheduleData = { date: string; games: ScheduleGame[] }
+type RosterPlayer = { id: string; name: string; teamId: string }
 type FinalGame = ScheduleGame & { players: NBAPlayer[] }
 type ResultsData = { date: string; games: FinalGame[] }
 const formatET=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso))
@@ -50,6 +51,7 @@ function App(){
  const [draft,setDraft]=useState<Pick>(initialForm())
  const [notice,setNotice]=useState('')
  const [schedule,setSchedule]=useState<ScheduleData|null>(null)
+ const [roster,setRoster]=useState<RosterPlayer[]>([])
  const [scheduleState,setScheduleState]=useState<'loading'|'ready'|'unavailable'>('loading')
  const [feedState,setFeedState]=useState<'loading'|'ready'|'offline'>('loading')
  const [lastResultsUpdate,setLastResultsUpdate]=useState<string|null>(null)
@@ -96,6 +98,19 @@ function App(){
   const interval=window.setInterval(()=>void fetchArchive(),15*60*1000)
   return()=>{alive=false;window.clearInterval(interval)}
  },[picks.map(p=>p.date+':'+p.status).join('|')])
+ useEffect(()=>{
+  let alive=true
+  const load=async()=>{
+   try {
+    const response=await fetch(import.meta.env.BASE_URL+'nba-players.json?ts='+Date.now(),{cache:'no-store'})
+    if(!response.ok)return
+    const data=await response.json() as {players:RosterPlayer[]}
+    if(alive&&Array.isArray(data.players))setRoster(data.players)
+   }catch{/* leave optional manual ID fallback */}
+  }
+  void load()
+  return()=>{alive=false}
+ },[])
  useEffect(()=>{
   if(!editing){setSchedule(null);return}
   let alive=true
@@ -181,15 +196,20 @@ function App(){
    </div>
   </main>
   {editing&&<div className="modal-shade" onMouseDown={e=>{if(e.target===e.currentTarget)setEditing(null)}}><div className="modal" role="dialog" aria-modal="true" aria-label="Edit prop"><div className="modal-head"><div><div className="eyebrow">JOURNAL ENTRY</div><h2>{editing.id?'Edit prop':'New prop'}</h2></div><button className="iconbtn" onClick={()=>setEditing(null)}><X size={20}/></button></div><div className="form-grid">{draft.lockedAt&&<div className="locked-alert">This prediction is locked. Only postgame correction notes can be updated. Original values below are read-only.</div>}<fieldset className="locked-fields" disabled={!!draft.lockedAt}>
-   <label>Player (exact NBA name)<input value={draft.player} onChange={e=>update('player',e.target.value)} placeholder="Player full name"/><small>Player ID is resolved from the matching final game unless a player ID is provided.</small></label>
-   <label>Player ESPN ID (optional)<input value={draft.playerId||''} onChange={e=>update('playerId',e.target.value)} placeholder="Avoid name-matching ambiguity"/></label>
+   <label>Player from team roster<select disabled={!!draft.lockedAt||!draft.opponent||!draft.gameId} value={draft.playerId||''} onChange={e=>{
+    const player=roster.find(p=>p.id===e.target.value)
+    if(player)setDraft(old=>({...old,playerId:player.id,player:player.name,teamId:player.teamId}))
+    else setDraft(old=>({...old,playerId:'',teamId:''}))
+   }}><option value="">Select player from roster (recommended)</option>{roster.filter(p=>{const game=schedule?.games.find(g=>g.id===draft.gameId);const team=game?.teams.find(t=>t.abbreviation!==draft.opponent);return Boolean(team&&p.teamId===team.id)}).sort((a,b)=>a.name.localeCompare(b.name)).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label>
+   <label>Player full name<input value={draft.player} onChange={e=>setDraft(old=>({...old,player:e.target.value,playerId:'',teamId:''}))} placeholder="Fallback if roster unavailable"/></label>
+   <label>Player ESPN ID<input value={draft.playerId||''} onChange={e=>update('playerId',e.target.value)} placeholder="Optional when typed manually"/></label>
    <label>Game date (ET)<input type="date" value={draft.date} onChange={e=>update('date',e.target.value)}/></label>
    <label>Game from NBA schedule ({draft.date})<select value={draft.gameId||''} disabled={!!draft.lockedAt} onChange={e=>{
     const game=schedule?.games.find(g=>g.id===e.target.value)
-    setDraft(old=>({...old,gameId:game?.id||'',playerId:'',teamId:'',gameTime:game?formatET(game.tipoff):'',tipoffISO:game?.tipoff||'',opponent:''}))
+    setDraft(old=>({...old,gameId:game?.id||'',playerId:'',teamId:'',gameTime:game?formatET(game.tipoff):'',tipoffISO:game?.tipoff||'',opponent:'',playerId:'',teamId:''}))
    }}><option value="">{scheduleState==='loading'?'Loading schedule…':scheduleState==='unavailable'?'Schedule unavailable — check feed':'Select scheduled NBA game'}</option>{schedule?.games.map(g=><option key={g.id} value={g.id}>{g.teams.map(t=>t.abbreviation).join(' vs ')} · {formatET(g.tipoff)} ET</option>)}</select></label>
    <label>Tipoff time (ET; from schedule)<input type="time" value={draft.gameTime||''} readOnly placeholder="Select a game"/></label>
-   <label>Opponent<select value={draft.opponent} disabled={!!draft.lockedAt||!draft.gameId} onChange={e=>update('opponent',e.target.value)}><option value="">Select opponent</option>{schedule?.games.find(g=>g.id===draft.gameId)?.teams.map(t=><option key={t.id} value={t.abbreviation}>{t.abbreviation}</option>)}</select></label>
+   <label>Opponent<select value={draft.opponent} disabled={!!draft.lockedAt||!draft.gameId} onChange={e=>setDraft(old=>({...old,opponent:e.target.value,playerId:'',teamId:''}))}><option value="">Select opponent</option>{schedule?.games.find(g=>g.id===draft.gameId)?.teams.map(t=><option key={t.id} value={t.abbreviation}>{t.abbreviation}</option>)}</select></label>
    <label>Market<select value={draft.market} onChange={e=>update('market',e.target.value)}>{markets.map(x=><option key={x}>{x}</option>)}</select></label>
    <label>Selection<select value={draft.side} onChange={e=>update('side',e.target.value)}><option>More</option><option>Less</option></select></label>
    <label>Line<input type="number" step="0.5" value={draft.line} onChange={e=>update('line',Number(e.target.value))}/></label>
