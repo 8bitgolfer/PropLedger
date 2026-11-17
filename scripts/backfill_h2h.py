@@ -14,6 +14,7 @@ from update_nba_results import process, PUBLIC
 
 PROGRESS = PUBLIC / "history-progress.json"
 BATCH_DAYS = 40
+MAX_BATCHES_PER_RUN = 6
 
 def main() -> None:
     today = dt.datetime.now(ZoneInfo("America/New_York")).date()
@@ -33,28 +34,39 @@ def main() -> None:
         except (ValueError, KeyError, OSError):
             pass
 
-    first = max(prev_start, last - dt.timedelta(days=BATCH_DAYS-1))
-    good = 0
-    day = first
-    while day <= last:
-        if process(day):
-            good += 1
-        day += dt.timedelta(days=1)
-        time.sleep(0.2)
-    if good == 0:
-        raise SystemExit("Previous season returned zero valid scoreboards. Progress not advanced.")
-    finished = first == prev_start
-    next_day = (first - dt.timedelta(days=1)).isoformat() if not finished else None
-    PROGRESS.write_text(json.dumps({
-        "targetStart": prev_start.isoformat(),
-        "targetEnd": prev_end.isoformat(),
-        "lastBatchStart": first.isoformat(),
-        "lastBatchEnd": last.isoformat(),
-        "validDates": good,
-        "nextDate": next_day,
-        "complete": finished
-    }, indent=2)+"\n", encoding="utf-8")
-    print(f"Previous-season H2H backfill: {first} through {last}; {good} dates; complete={finished}")
+    # Continue from the last saved cursor. Several bounded batches in a
+    # single run cover the full prior regular season without waiting for
+    # multiple hourly workflow executions.
+    for batch in range(MAX_BATCHES_PER_RUN):
+        if last < prev_start:
+            break
+        first = max(prev_start, last - dt.timedelta(days=BATCH_DAYS - 1))
+        valid = 0
+        day = first
+        while day <= last:
+            if process(day):
+                valid += 1
+            day += dt.timedelta(days=1)
+            time.sleep(0.12)
+        # Preserve already collected results if one section is unavailable.
+        if not valid:
+            print(f"Could not fetch any valid dates in {first} through {last}. Preserving progress.")
+            break
+        completed = first == prev_start
+        next_date = (first - dt.timedelta(days=1)).isoformat() if not completed else None
+        PROGRESS.write_text(json.dumps({
+            "targetStart": prev_start.isoformat(),
+            "targetEnd": prev_end.isoformat(),
+            "lastBatchStart": first.isoformat(),
+            "lastBatchEnd": last.isoformat(),
+            "validDates": valid,
+            "nextDate": next_date,
+            "complete": completed
+        }, indent=2) + "\\n", encoding="utf-8")
+        print(f"H2H archive batch {batch + 1}: {first} to {last}, {valid} valid dates, complete={completed}")
+        if completed:
+            break
+        last = first - dt.timedelta(days=1)
 
 if __name__ == "__main__":
     main()
