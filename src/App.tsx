@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import CloudBackup from './CloudBackup'
 import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, Check, ChevronDown, ClipboardList, Download, FileUp, Filter, LayoutDashboard, Plus, Search, Target, Trash2, X } from 'lucide-react'
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
@@ -16,7 +17,7 @@ const formatET=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'America/
 const validMarkets=['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks']
 const normalize=(s:string)=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
 const resultFor=(market:string,p:NBAPlayer):number|null=>{
- const values:Record<string,number>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra,'Steals':p.steals,'Blocks':p.blocks}
+ const values:Record<string,number|null>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra,'Steals':p.steals,'Blocks':p.blocks}
  return Number.isFinite(values[market])?values[market]:null
 }
 const localDate=(iso:string)=>{
@@ -38,7 +39,7 @@ function load(): Pick[] { try { const raw=localStorage.getItem(KEY); if(!raw)ret
 const nowDate=()=>localDate(new Date().toISOString())
 function validResult(status:Status){return status==='win'||status==='loss'||status==='push'||status==='void'}
 const pct=(n:number)=>Number.isFinite(n)?n.toFixed(1)+'%':'—'
-function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:true,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
+function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function Symbol({result}:{result:Status}){return <span className={'state '+result}>{result.toUpperCase()}</span>}
 function App(){
  const [picks,setPicks]=useState<Pick[]>(load)
@@ -111,7 +112,7 @@ function App(){
   void load()
   return()=>{alive=false}
  },[editing?.id,draft.date])
- const graded=picks.filter(p=>p.recommended&&(p.status==='win'||p.status==='loss'))
+ const graded=picks.filter(p=>p.lockedAt&&(p.status==='win'||p.status==='loss'))
  const wins=graded.filter(p=>p.status==='win').length
  const pctAccuracy=graded.length?wins/graded.length*100:NaN
  const meanError=(()=>{const relevant=picks.filter(p=>p.projection!==null&&p.actual!==null&&validResult(p.status));return relevant.length?relevant.reduce((s,p)=>s+Math.abs(p.actual!-p.projection!),0)/relevant.length:null})()
@@ -125,7 +126,7 @@ function App(){
    setPicks(old=>old.map(p=>p.id===editing.id?{...p,correctionNotes:draft.correctionNotes||''}:p))
    setEditing(null);setNotice('Correction notes saved. Original prediction is unchanged.');return
   }
-  const record={...draft,autoGraded:false,id:editing?.id||crypto.randomUUID(),createdAt:editing?.createdAt||new Date().toISOString()}
+  const record={...draft,recommended:false,autoGraded:false,id:editing?.id||crypto.randomUUID(),createdAt:editing?.createdAt||new Date().toISOString()}
   setPicks(old=>editing?.id?old.map(p=>p.id===record.id?record:p):[record,...old]);setEditing(null);setNotice('Draft entry saved')
  }
  const lock=(p:Pick)=>{
@@ -143,7 +144,7 @@ function App(){
    <div className="brand"><div className="brand-symbol">P<span>.</span></div><div><strong>PROPLEDGER</strong><small>NBA PROP RESEARCH</small></div></div>
    <div className="nav-caption">WORKSPACE</div>
    <nav><button className={screen==='overview'?'selected':''} onClick={()=>setScreen('overview')}><LayoutDashboard size={17}/> Overview</button><button className={screen==='journal'?'selected':''} onClick={()=>setScreen('journal')}><ClipboardList size={17}/> Prop Journal <span className="nav-count">{picks.length}</span></button><button className={screen==='analytics'?'selected':''} onClick={()=>setScreen('analytics')}><BarChart3 size={17}/> Analytics</button></nav>
-   <div className="side-bottom"><div className="statusdot"/> LOCAL DATA <span>v1.0</span><p>Data stays in this browser. Export backups regularly; no automatic sportsbook or score sync.</p></div>
+   <div className="side-bottom"><div className="statusdot"/> LOCAL DATA <span>v1.0</span><p>Data stays in this browser. Export backups regularly; No sportsbook sync. Automatic archived NBA score refresh is supported when GitHub Actions succeeds.</p></div>
   </aside>
   <main className="main">
    <header className="topbar"><div className="breadcrumbs">WORKSPACE <span>/</span> {screen.toUpperCase()}</div><div className="top-actions"><span className="live-mark"><span/> {feedState==='loading'?'LOADING RESULTS':feedState==='offline'?'RESULTS NOT ARCHIVED':'AUTO RESULT ARCHIVE'}</span><button className="iconbtn" title="Export JSON" onClick={exportData}><Download size={17}/></button><button className="iconbtn" title="Import JSON" onClick={()=>fileRef.current?.click()}><FileUp size={17}/></button><input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={e=>importData(e.target.files?.[0])}/></div></header>
@@ -173,6 +174,7 @@ function App(){
     {screen==='analytics'&&<>
       <div className="analytics-grid"><div className="info-panel"><div className="panel-title">BY STAT CATEGORY</div>{byMarket.length===0?<div className="empty">No graded model recommendations yet. Grade some picks to see category accuracy.</div>:byMarket.map(r=><div className="bar-row" key={r.market}><div><span>{r.market}</span><small>{r.wins}/{r.count} wins</small></div><div className="bar-track"><div style={{width:r.rate+'%'}}/></div><b>{pct(r.rate)}</b></div>)}</div><div className="info-panel"><div className="panel-title">EVALUATION CHECKLIST</div><h3>What to measure next</h3><p>Accuracy measures how often recommendations beat their original lines. To improve the model, record the original probability estimate and compare it against actual outcomes over a meaningful sample.</p><div className="rule"><Check size={15}/> Track recommendations before tipoff</div><div className="rule"><Check size={15}/> Separate watchlists from real picks</div><div className="rule"><Check size={15}/> Track projected outcomes against verified NBA results</div><div className="rule"><Check size={15}/> Evaluate accuracy over larger samples</div></div></div>
       <div className="section-title"><div><span className="section-index">02</span><h2>Audit snapshot</h2></div></div>
+      <CloudBackup picks={picks} onRestore={records=>{setPicks(records);setNotice('Cloud journal restored.')}}/>
       <div className="audit-grid"><div>PROJECTED STAT ENTRIES <b>{picks.filter(p=>p.projection!==null).length}</b></div><div>PROBABILITY ESTIMATES <b>{picks.filter(p=>p.probability!==null).length}</b></div><div>AUTO-GRADED RESULTS <b>{picks.filter(p=>p.autoGraded).length}</b></div><div>RECOMMENDATIONS GRADED <b>{graded.length}</b></div></div>
     </>}
     <footer>PROPLEDGER <span>© 2026 · RESEARCH JOURNAL · NOT LIVE BETTING DATA</span></footer>
@@ -196,7 +198,7 @@ function App(){
    <label>Model hit probability (%)<input type="number" min="0" max="100" placeholder="Optional" value={draft.probability??''} onChange={e=>update('probability',e.target.value===''?null:Math.min(100,Math.max(0,Number(e.target.value))))}/></label>
    <label>Status<select value={draft.status} onChange={e=>update('status',e.target.value)}>{(['watchlist','pending','win','loss','push','void'] as Status[]).map(s=><option value={s} key={s}>{s}</option>)}</select></label>
    <label>Actual result<input type="number" step="0.1" placeholder="Not yet known" value={draft.actual??''} onChange={e=>update('actual',e.target.value===''?null:Number(e.target.value))}/></label>
-   <label className="toggle-row"><input type="checkbox" checked={draft.recommended} onChange={e=>update('recommended',e.target.checked)}/> Final model recommendation (not watchlist)</label>
+   <div className="locked-hint">Save this draft, then click LOCK in the journal before tipoff to finalize it for model scoring.</div>
    <label className="full">Why I like this pick<textarea rows={4} value={draft.rationale||''} onChange={e=>update('rationale',e.target.value)} placeholder="Role, injuries, minutes, matchup, line value, and key risks..."/></label>
    <label className="full">Research notes<textarea rows={3} value={draft.notes} onChange={e=>update('notes',e.target.value)} placeholder="Reasoning, injury impact, risk factors..."/></label>
    </fieldset><label className="full">Postgame correction notes (separate from locked prediction)<textarea rows={3} value={draft.correctionNotes||''} onChange={e=>update('correctionNotes',e.target.value)} placeholder="Audit corrections; original forecast remains unchanged"/></label>
@@ -204,6 +206,6 @@ function App(){
  </div>
 }
 function Journal({rows,onEdit,onLock}:{rows:Pick[];onEdit:(p:Pick)=>void;onLock:(p:Pick)=>void}){
- return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {p.gameTime||'Time unverified'} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.recommended?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>RESEARCH BREAKDOWN <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified research under Edit → Why I like this pick.'}{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</div></details></td></tr></Fragment>)}</tbody></table></div></div>
+ return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {p.gameTime||'Time unverified'} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>RESEARCH BREAKDOWN <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified research under Edit → Why I like this pick.'}{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</div></details></td></tr></Fragment>)}</tbody></table></div></div>
 }
 export default App
