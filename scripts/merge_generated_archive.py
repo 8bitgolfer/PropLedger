@@ -49,14 +49,18 @@ def merge_games(old, new):
 def progress_choice(old, new):
     if not isinstance(old, dict): return new
     if not isinstance(new, dict): return old
-    if old.get("targetStart") != new.get("targetStart"):
-        return new
-    if old.get("complete"):return old
-    if new.get("complete"):return new
-    # Next cursor moves backward during a previous-season backfill.
-    a = old.get("nextDate") or "9999-99-99"
-    b = new.get("nextDate") or "9999-99-99"
-    return new if b < a else old
+    # Schema v2 tracks career H2H across multiple seasons. The old v1
+    # "complete" flag applied only to 2025-26 and must not block v2.
+    old_ver = int(old.get("schemaVersion") or 1)
+    new_ver = int(new.get("schemaVersion") or 1)
+    if new_ver > old_ver: return new
+    if old_ver > new_ver: return old
+    if old.get("complete"): return old
+    if new.get("complete"): return new
+    # Earlier calendar cursor means more historical games have been archived.
+    old_cursor = old.get("nextDate") or "9999-12-31"
+    new_cursor = new.get("nextDate") or "9999-12-31"
+    return new if new_cursor < old_cursor else old
 
 def main():
     parser = argparse.ArgumentParser()
