@@ -165,7 +165,7 @@ def main() -> None:
         archive = PUBLIC / "results"
         has_history = archive.exists() and any(archive.glob("????-??-??.json"))
         season_year = today.year if today.month >= 10 else today.year - 1
-        start = today - dt.timedelta(days=12) if has_history else dt.date(season_year, 10, 1)
+        start = today - dt.timedelta(days=12) if has_history else max(dt.date(season_year, 10, 1), today - dt.timedelta(days=85))
         end = today + dt.timedelta(days=4)
     if start > end or (end - start).days > 90:
         parser.error("Backfill must span 0–90 days with start <= end.")
