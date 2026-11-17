@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CloudBackup from './CloudBackup'
+import PickInsights, { type InsightFeed } from './PickInsights'
 import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, Check, ChevronDown, ClipboardList, Download, FileUp, Filter, LayoutDashboard, Plus, Search, Target, Trash2, X } from 'lucide-react'
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
@@ -56,6 +57,8 @@ function App(){
  const [editing,setEditing]=useState<Pick|null>(null)
  const [draft,setDraft]=useState<Pick>(initialForm())
  const [notice,setNotice]=useState('')
+ const [insightFeed,setInsightFeed]=useState<InsightFeed|null>(null)
+ const [insightState,setInsightState]=useState<'loading'|'ready'|'unavailable'>('loading')
  const [schedule,setSchedule]=useState<ScheduleData|null>(null)
  const [roster,setRoster]=useState<RosterPlayer[]>([])
  const [scheduleState,setScheduleState]=useState<'loading'|'ready'|'unavailable'>('loading')
@@ -63,6 +66,21 @@ function App(){
  const [lastResultsUpdate,setLastResultsUpdate]=useState<string|null>(null)
  const fileRef=useRef<HTMLInputElement>(null)
  useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(picks))},[picks])
+ useEffect(()=>{
+  let active=true
+  const load=async()=>{
+   try{
+    const res=await fetch(import.meta.env.BASE_URL+'insights.json?t='+Date.now(),{cache:'no-store'})
+    if(!res.ok)throw Error('Archive unavailable')
+    const body=await res.json() as InsightFeed
+    if(body.schemaVersion!==1||!Array.isArray(body.games)||body.games.length===0)throw Error('Archive empty')
+    if(active){setInsightFeed(body);setInsightState('ready')}
+   }catch{if(active)setInsightState('unavailable')}
+  }
+  void load()
+  const refresh=window.setInterval(()=>void load(),30*60*1000)
+  return()=>{active=false;window.clearInterval(refresh)}
+ },[])
  useEffect(()=>{
   let alive=true
   const fetchArchive=async()=>{
@@ -182,7 +200,7 @@ function App(){
       </div>
       <div className="feed-notice">NBA SCORE FEED: {feedState==='offline'?'UNAVAILABLE — existing results preserved':lastResultsUpdate?'CHECKED '+new Date(lastResultsUpdate).toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})+' ET':'WAITING FOR FIRST ARCHIVE REFRESH'} · Unmatched picks stay pending.</div>
       <div className="section-title"><div><span className="section-index">01</span><h2>Current journal</h2></div><button className="ghost" onClick={()=>setScreen('journal')}>View all entries <ArrowUpRight size={15}/></button></div>
-      <Journal rows={filtered.slice(0,8)} onEdit={start} onLock={lock}/>
+      <Journal rows={filtered.slice(0,8)} onEdit={start} onLock={lock} insightFeed={insightFeed} insightState={insightState}/>
       <div className="split-panels">
        <div className="info-panel"><div className="panel-title"><BarChart3 size={16}/> PERFORMANCE RULES</div><h3>Review the reasoning.</h3><p>Each pick has a collapsible rationale explaining the analysis behind it. Original predictions stay separate from watchlist ideas. Completed NBA games are checked automatically when the score feed refreshes.</p><div className="rule"><Check size={15}/> Final recommendations and watchlists tracked separately</div><div className="rule"><Check size={15}/> Automatic box-score results and data backups</div></div>
        <div className="info-panel dark-panel"><div className="panel-title"><Filter size={16}/> RESULTS COVERAGE</div><div className="coverage"><strong>{picks.filter(p=>p.status==='watchlist').length}</strong><span>Unverified watchlist targets</span></div><div className="coverage"><strong>{picks.filter(p=>p.status==='pending').length}</strong><span>Waiting for completed game</span></div><div className="coverage"><strong>{picks.filter(p=>validResult(p.status)).length}</strong><span>Final results</span></div></div>
@@ -190,7 +208,7 @@ function App(){
     </>}
     {screen==='journal'&&<>
       <div className="toolbar"><label className="search"><Search size={16}/><input placeholder="Search player, opponent or market" value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="select-wrap"><Filter size={15}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All statuses</option>{(['watchlist','pending','win','loss','push','void'] as Status[]).map(s=><option value={s} key={s}>{s}</option>)}</select><ChevronDown size={14}/></div><span className="rowcount">{filtered.length} ENTRIES</span></div>
-      <Journal rows={filtered} onEdit={start} onLock={lock}/>
+      <Journal rows={filtered} onEdit={start} onLock={lock} insightFeed={insightFeed} insightState={insightState}/>
       <p className="footnote">Final NBA box scores are matched automatically by game date, player and opponent. If a game or player cannot be matched safely, the entry remains pending. You can still correct exceptions manually.</p>
     </>}
     {screen==='analytics'&&<>
@@ -232,7 +250,7 @@ function App(){
   </div><div className="modal-foot">{editing.id&&!editing.lockedAt&&<button className="delete" onClick={()=>{if(window.confirm('Delete this entry permanently?')){setPicks(old=>old.filter(p=>p.id!==editing.id));setEditing(null)}}}><Trash2 size={15}/> Delete</button>}<div className="grow"/><button className="secondary" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" onClick={save}><Check size={16}/> {draft.lockedAt?'Save notes':'Save entry'}</button></div></div></div>}
  </div>
 }
-function Journal({rows,onEdit,onLock}:{rows:Pick[];onEdit:(p:Pick)=>void;onLock:(p:Pick)=>void}){
- return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {displayTime(p.gameTime)} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>RESEARCH BREAKDOWN <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified research under Edit → Why I like this pick.'}{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</div></details></td></tr></Fragment>)}</tbody></table></div></div>
+function Journal({rows,onEdit,onLock,insightFeed,insightState}:{rows:Pick[];onEdit:(p:Pick)=>void;onLock:(p:Pick)=>void;insightFeed:InsightFeed|null;insightState:'loading'|'ready'|'unavailable'}){
+ return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {displayTime(p.gameTime)} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>STATS & MATCHUP <ChevronDown size={13}/></span></summary><PickInsights pick={p} data={insightFeed} state={insightState}/>{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</details></td></tr></Fragment>)}</tbody></table></div></div>
 }
 export default App
