@@ -51,7 +51,7 @@ function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,ti
 function App(){
  const [picks,setPicks]=useState<Pick[]>(load)
  const [screen,setScreen]=useState<'results'|'picks'|'analytics'>('results')
- const [selectedDay,setSelectedDay]=useState('2026-11-16')
+ const [selectedDay,setSelectedDay]=useState(()=>{const dates=load().filter(p=>p.date>='2026-11-16').map(p=>p.date).sort();return dates[dates.length-1]||'2026-11-16'})
  const [selectedPick,setSelectedPick]=useState<string|null>(null)
  const [editing,setEditing]=useState<Pick|null>(null)
  const [draft,setDraft]=useState<Pick>(initialForm())
@@ -163,7 +163,7 @@ function App(){
    setEditing(null);setNotice('Correction notes saved. Original prediction is unchanged.');return
   }
   const record={...draft,recommended:false,autoGraded:false,id:editing?.id||crypto.randomUUID(),createdAt:editing?.createdAt||new Date().toISOString()}
-  setPicks(old=>editing?.id?old.map(p=>p.id===record.id?record:p):[record,...old]);setEditing(null);setNotice('Draft entry saved')
+  setPicks(old=>editing?.id?old.map(p=>p.id===record.id?record:p):[record,...old]);setEditing(null);setSelectedDay(record.date>='2026-11-16'?record.date:'2026-11-16');setSelectedPick(record.id);setNotice('Draft entry saved')
  }
  const lock=(p:Pick)=>{
   if(!p.player||!p.gameId||!p.gameTime||!p.opponent||!validMarkets.includes(p.market)){setNotice('Select a scheduled game, opponent, player and supported market before finalizing.');return}
