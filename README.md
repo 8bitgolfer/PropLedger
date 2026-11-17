@@ -8,9 +8,9 @@ PropLedger now has exactly **three primary pages** with a shared dark charcoal a
 
 - **Results** — an interactive calendar starting **November 16, 2026**, with daily `wins / graded tracked picks (hit rate)`, completed-pick table, monthly summary and clearly labeled watchlist outcomes.
 - **Picks** — a clean, compact date-specific table without player portraits, search fields, or name badges; clicking a row opens saved line, projection, edge, research graphs, historical career H2H and opponent-matchup detail.
-- **Analytics** — overall finalized-model record, historical cumulative hit-rate trend, stat-market performance, recent results and data backup controls. No Settings page, ROI, profit/loss, bankroll or unit tracking.
+- **Analytics** — overall tracked-pick record, cumulative hit-rate trend, stat-market performance, recent results, separate locked-model audit, and data backup controls. No Settings page, ROI, profit/loss, bankroll or unit tracking.
 
-The displayed stats are derived **only from stored records**. Image concepts were visual references, not sources of genuine 4/5 or 80% results. Watchlist/draft entries can receive final NBA box scores automatically and contribute to the Results calendar's *tracked* hit rate; they are never counted in official locked-model hit rates on the Analytics page. Predictions cannot be retroactively locked after tipoff to inflate historic performance.
+The displayed stats are derived **only from stored records**. Image concepts were visual references, not sources of genuine 4/5 or 80% results. Watchlist/draft entries can receive final NBA box scores automatically and contribute to the Results calendar's *tracked* hit rate; they are separately identifiable from the official locked-model hit rate on the Analytics page. Predictions cannot be retroactively locked after tipoff to inflate historic performance.
 
 Scores are imported by GitHub Actions on an approximately 20-minute schedule (delays possible), deployed through the same NBA results workflow, and rechecked by the browser every five minutes and when the page regains focus. The frontend keeps existing `propledger-v1` localStorage keys, IDs and historical records intact.
 
