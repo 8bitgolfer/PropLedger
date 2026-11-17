@@ -97,3 +97,8 @@ tr.why-row td{padding:0!important;background:#0e171b;border-bottom:1px solid #2c
 .insight-reason p{margin:12px 0 0;color:#b6c6cd;font-size:12px;line-height:1.9;white-space:pre-wrap;max-width:950px}
 .insight-footnote{color:#71858e;font-size:10px;line-height:1.7;white-space:normal;margin-top:15px}
 @media(max-width:760px){.insight-shell{padding:14px 12px}.insight-top{align-items:start}.insight-data-source{font-size:8px;text-align:right}.insight-tabs{width:100%}.insight-tabs button{padding:11px 8px;flex:1;font-size:9px}.insight-stats{grid-template-columns:repeat(2,1fr)}.insight-stats>div:nth-child(-n+2){border-bottom:1px solid #293940}.insight-stats>div:nth-child(2){border-right:0}.insight-defense{padding:15px 12px}.insight-defense-score strong{font-size:19px}}
+
+/* Keep chart drawer layout separate from the older plain-text rationale styles */
+.why-row .rationale-row > .insight-shell{padding:18px 20px 20px;color:#d7e3e7;font-size:12px;white-space:normal;max-width:none}
+.why-row .rationale-row > .insight-shell .insight-reason p{white-space:pre-wrap}
+@media(max-width:760px){.why-row .rationale-row > .insight-shell{padding:14px 12px}}
