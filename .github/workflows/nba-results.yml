@@ -1,5 +1,11 @@
 name: Refresh NBA scores and schedule
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/update_nba_results.py'
+      - 'scripts/build_insights.py'
+      - '.github/workflows/nba-results.yml'
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
