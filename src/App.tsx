@@ -1,8 +1,7 @@
-import { Fragment } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import CloudBackup from './CloudBackup'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
-import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Download, FileUp, Plus, Target, Trash2, X } from 'lucide-react'
+import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, Target, Trash2, X } from 'lucide-react'
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
 type Side = 'More' | 'Less'
@@ -48,10 +47,7 @@ const seed: Pick[] = [
 ]
 function load(): Pick[] { try { const raw=localStorage.getItem(KEY); if(!raw)return seed; const data:unknown=JSON.parse(raw); return Array.isArray(data)?data as Pick[]:seed } catch { return seed } }
 const nowDate=()=>localDate(new Date().toISOString())
-function validResult(status:Status){return status==='win'||status==='loss'||status==='push'||status==='void'}
-const pct=(n:number)=>Number.isFinite(n)?n.toFixed(1)+'%':'—'
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
-function Symbol({result}:{result:Status}){return <span className={'state '+result}>{result.toUpperCase()}</span>}
 function App(){
  const [picks,setPicks]=useState<Pick[]>(load)
  const [screen,setScreen]=useState<'results'|'picks'|'analytics'>('results')
@@ -154,12 +150,6 @@ function App(){
   void load()
   return()=>{alive=false}
  },[editing?.id,draft.date])
- const graded=picks.filter(p=>p.lockedAt&&(p.status==='win'||p.status==='loss'))
- const wins=graded.filter(p=>p.status==='win').length
- const pctAccuracy=graded.length?wins/graded.length*100:NaN
- const meanError=(()=>{const relevant=picks.filter(p=>p.projection!==null&&p.actual!==null&&validResult(p.status));return relevant.length?relevant.reduce((s,p)=>s+Math.abs(p.actual!-p.projection!),0)/relevant.length:null})()
- const filtered=useMemo(()=>picks.filter(p=>{const q=(p.player+' '+p.market+' '+p.opponent).toLowerCase().includes(query.toLowerCase());return q&&(filter==='all'||p.status===filter)}).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt)),[picks,query,filter])
- const byMarket=markets.map(m=>{const rows=graded.filter(p=>p.market===m);return {market:m,count:rows.length,wins:rows.filter(p=>p.status==='win').length,rate:rows.length?rows.filter(p=>p.status==='win').length/rows.length*100:0}}).filter(r=>r.count>0)
  const exportData=()=>{const blob=new Blob([JSON.stringify({app:'PropLedger',version:1,exportedAt:new Date().toISOString(),picks},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='propledger-backup-'+nowDate()+'.json';a.click();URL.revokeObjectURL(url)}
  const importData=async(file?:File)=>{if(!file)return;try{const parsed=JSON.parse(await file.text());const arr=Array.isArray(parsed)?parsed:parsed.picks;if(!Array.isArray(arr)||!arr.every((p:unknown)=>typeof p==='object'&&p!==null&&'id'in p&&'player'in p&&'status'in p))throw new Error('Invalid backup');if(!window.confirm('Replace the entire current journal with this backup? Export your existing data first.'))return;setPicks(arr as Pick[]);setNotice('Backup restored successfully')}catch{setNotice('Could not import: invalid PropLedger backup')}finally{if(fileRef.current)fileRef.current.value=''}}
  const save=()=>{
@@ -218,7 +208,6 @@ function App(){
  const resultTone=(wins:number,count:number)=>count===0?'muted':wins/count>=.6?'good':wins/count>=.4?'mid':'bad'
  const datePicks=validPicks.filter(p=>p.date===selectedDay)
  const displayList=screen==='picks'?datePicks:daily
- const activeMonthDays=[...new Set(completePicks.map(p=>p.date))].sort()
  const historyPts=activeMonthDays.slice(-12).map((date,i)=>{const upto=completePicks.filter(p=>p.date<=date);return {date,rate:upto.length?100*upto.filter(p=>p.status==='win').length/upto.length:0,index:i}})
  const chartPoints=historyPts.map((p,i)=>String(35+i*(historyPts.length>1?550/(historyPts.length-1):0))+','+String(205-p.rate*1.75)).join(' ')
  return <div className="pl-shell">
@@ -337,8 +326,5 @@ function App(){
    </fieldset><label className="full">Postgame correction notes (separate from locked prediction)<textarea rows={3} value={draft.correctionNotes||''} onChange={e=>update('correctionNotes',e.target.value)} placeholder="Audit corrections; original forecast remains unchanged"/></label>
   </div><div className="modal-foot">{editing.id&&!editing.lockedAt&&<button className="delete" onClick={()=>{if(window.confirm('Delete this entry permanently?')){setPicks(old=>old.filter(p=>p.id!==editing.id));setEditing(null)}}}><Trash2 size={15}/> Delete</button>}<div className="grow"/><button className="secondary" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" onClick={save}><Check size={16}/> {draft.lockedAt?'Save notes':'Save entry'}</button></div></div></div>}
  </div>
-}
-function Journal({rows,onEdit,onLock,insightFeed,insightState}:{rows:Pick[];onEdit:(p:Pick)=>void;onLock:(p:Pick)=>void;insightFeed:InsightFeed|null;insightState:'loading'|'ready'|'unavailable'}){
- return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {displayTime(p.gameTime)} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection!==null?<>{p.projection}<span className="projection-label">MODEL</span></>:<>{historicalBaseline(p,insightFeed)??'—'}<span className="projection-label">AUTO BASELINE</span></>}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>STATS & MATCHUP <ChevronDown size={13}/></span></summary><PickInsights pick={p} data={insightFeed} state={insightState}/>{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</details></td></tr></Fragment>)}</tbody></table></div></div>
 }
 export default App
