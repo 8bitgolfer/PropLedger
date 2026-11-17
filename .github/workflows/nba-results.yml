@@ -1,28 +1,47 @@
-name: Refresh NBA box scores
+name: Refresh NBA scores and schedule
 on:
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Optional historical backfill start YYYY-MM-DD'
+        required: false
+        type: string
+      end_date:
+        description: 'Optional historical backfill end YYYY-MM-DD (max 90 days)'
+        required: false
+        type: string
 permissions:
   contents: write
+concurrency:
+  group: nba-results-archive
+  cancel-in-progress: false
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Fetch final NBA box scores
-        run: python scripts/update_nba_results.py
-      - name: Commit changed results
+      - name: Fetch NBA schedules and final player statistics
+        env:
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: |
+          if [ -n "$START_DATE" ]; then
+            python scripts/update_nba_results.py --start "$START_DATE" --end "${END_DATE:-$START_DATE}"
+          else
+            python scripts/update_nba_results.py
+          fi
+      - name: Commit archive and schedule
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/nba-results.json
+          git add public/results public/schedule
           if ! git diff --cached --quiet; then
-            git commit -m "Update NBA final box scores"
-            git push
+            git commit -m "Archive NBA schedules and final box scores"
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
