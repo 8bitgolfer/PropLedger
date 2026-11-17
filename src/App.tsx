@@ -27,6 +27,12 @@ const localDate=(iso:string)=>{
  return read('year')+'-'+read('month')+'-'+read('day')
 }
 const defaultTime=''
+const displayTime=(value?:string)=>{
+ if(!value)return 'Time unverified'
+ const [h,m]=value.split(':').map(Number)
+ if(!Number.isFinite(h)||!Number.isFinite(m))return 'Time unverified'
+ return (h%12||12)+':'+String(m).padStart(2,'0')+(h>=12?' PM':' AM')
+}
 
 const markets = ['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks','Other']
 const seed: Pick[] = [
@@ -146,6 +152,7 @@ function App(){
  }
  const lock=(p:Pick)=>{
   if(!p.player||!p.gameId||!p.gameTime||!p.opponent||!validMarkets.includes(p.market)){setNotice('Select a scheduled game, opponent, player and supported market before finalizing.');return}
+  if(!p.rationale||p.rationale.trim().length<30){setNotice('Every final pick needs a detailed WHY THIS PICK explanation before it can be locked.');return}
   const kickoff=p.tipoffISO?new Date(p.tipoffISO):null
   if(!kickoff||!Number.isFinite(kickoff.getTime())||Date.now()>=kickoff.getTime()){setNotice('Cannot finalize: an official future tipoff is required.');return}
   setPicks(old=>old.map(row=>row.id===p.id?{...row,recommended:true,status:'pending',lockedAt:new Date().toISOString()}:row))
@@ -226,6 +233,6 @@ function App(){
  </div>
 }
 function Journal({rows,onEdit,onLock}:{rows:Pick[];onEdit:(p:Pick)=>void;onLock:(p:Pick)=>void}){
- return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {p.gameTime||'Time unverified'} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>RESEARCH BREAKDOWN <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified research under Edit → Why I like this pick.'}{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</div></details></td></tr></Fragment>)}</tbody></table></div></div>
+ return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><Fragment key={p.id}><tr><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {displayTime(p.gameTime)} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.lockedAt?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><div className="journal-actions">{!p.lockedAt&&p.status!=='win'&&p.status!=='loss'&&<button className="edit-btn lock-btn" onClick={()=>onLock(p)}>LOCK</button>}<button className="edit-btn" onClick={()=>onEdit(p)}>{p.lockedAt?'NOTES':'EDIT'}</button></div></td></tr><tr className="why-row"><td colSpan={9}><details className="rationale-row"><summary><span>+ WHY THIS PICK · {p.player}</span><span>RESEARCH BREAKDOWN <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified research under Edit → Why I like this pick.'}{p.lockedAt&&<p className="lock-label">Original prediction locked: {new Date(p.lockedAt).toLocaleString('en-US',{timeZone:'America/New_York'})} ET</p>}{p.correctionNotes&&<p className="correction-note">Postgame correction notes: {p.correctionNotes}</p>}</div></details></td></tr></Fragment>)}</tbody></table></div></div>
 }
 export default App
