@@ -18,6 +18,9 @@ type ResultsData = { date: string; games: FinalGame[] }
 const formatET=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso))
 const validMarkets=['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks']
 const normalize=(s:string)=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
+const teamAliases:Record<string,string>={gs:'gsw',gsw:'gsw',no:'nop',nop:'nop',ny:'nyk',nyk:'nyk',sa:'sas',sas:'sas',wsh:'was',was:'was',ut:'uta',uta:'uta',pho:'phx',phx:'phx',brk:'bkn',bkn:'bkn'}
+const teamKey=(s:string)=>teamAliases[normalize(s)]||normalize(s)
+
 const resultFor=(market:string,p:NBAPlayer):number|null=>{
  const values:Record<string,number|null>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra,'Steals':p.steals,'Blocks':p.blocks}
  return Number.isFinite(values[market])?values[market]:null
@@ -105,11 +108,11 @@ function App(){
    setPicks(old=>old.map(p=>{
     // Never overwrite a manual grade, a void, or an already recorded final.
     if(p.actual!==null||p.status==='void'||p.status==='push'||p.status==='win'||p.status==='loss')return p
-    let matches:FinalGame[]=p.gameId?games.filter(g=>g.id===p.gameId):games.filter(g=>g.date===p.date&&g.teams.some(t=>normalize(t.abbreviation)===normalize(p.opponent||'')))
+    let matches:FinalGame[]=p.gameId?games.filter(g=>g.id===p.gameId):games.filter(g=>g.date===p.date&&g.teams.some(t=>teamKey(t.abbreviation)===teamKey(p.opponent||'')))
     if(matches.length!==1||matches[0].date!==p.date)return p
     const game=matches[0]
     let players=p.playerId?game.players.filter(a=>a.id===p.playerId):game.players.filter(a=>normalize(a.name)===normalize(p.player))
-    players=players.filter(a=>!p.teamId||a.teamId===p.teamId)
+    players=players.filter(a=>(!p.teamId||a.teamId===p.teamId)&&teamKey(a.team)!==teamKey(p.opponent||''))
     if(players.length!==1)return p
     const person=players[0]
     const actual=resultFor(p.market,person)
