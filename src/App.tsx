@@ -4,7 +4,7 @@ import { Activity, ArrowDownRight, ArrowUpRight, BarChart3, Check, ChevronDown, 
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
 type Side = 'More' | 'Less'
-type Pick = { id: string; date: string; gameTime?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
+type Pick = { id: string; date: string; gameTime?: string; tipoffISO?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
 const KEY = 'propledger-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
@@ -38,7 +38,7 @@ function load(): Pick[] { try { const raw=localStorage.getItem(KEY); if(!raw)ret
 const nowDate=()=>localDate(new Date().toISOString())
 function validResult(status:Status){return status==='win'||status==='loss'||status==='push'||status==='void'}
 const pct=(n:number)=>Number.isFinite(n)?n.toFixed(1)+'%':'—'
-function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:true,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
+function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:true,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function Symbol({result}:{result:Status}){return <span className={'state '+result}>{result.toUpperCase()}</span>}
 function App(){
  const [picks,setPicks]=useState<Pick[]>(load)
@@ -130,8 +130,8 @@ function App(){
  }
  const lock=(p:Pick)=>{
   if(!p.player||!p.gameId||!p.gameTime||!p.opponent||!validMarkets.includes(p.market)){setNotice('Select a scheduled game, opponent, player and supported market before finalizing.');return}
-  const kickoff=new Date(p.date+'T'+p.gameTime+':00'+(new Date(p.date+'T12:00:00Z').getUTCMonth()>=2&&new Date(p.date+'T12:00:00Z').getUTCMonth()<=9?'-04:00':'-05:00'))
-  if(!Number.isFinite(kickoff.getTime())||Date.now()>=kickoff.getTime()){setNotice('Cannot finalize a prediction after its recorded tipoff.');return}
+  const kickoff=p.tipoffISO?new Date(p.tipoffISO):null
+  if(!kickoff||!Number.isFinite(kickoff.getTime())||Date.now()>=kickoff.getTime()){setNotice('Cannot finalize: an official future tipoff is required.');return}
   setPicks(old=>old.map(row=>row.id===p.id?{...row,recommended:true,status:'pending',lockedAt:new Date().toISOString()}:row))
   setNotice('Finalized and locked. Original prediction fields can no longer be edited.')
  }
@@ -184,7 +184,7 @@ function App(){
    <label>Game date (ET)<input type="date" value={draft.date} onChange={e=>update('date',e.target.value)}/></label>
    <label>Game from NBA schedule ({draft.date})<select value={draft.gameId||''} disabled={!!draft.lockedAt} onChange={e=>{
     const game=schedule?.games.find(g=>g.id===e.target.value)
-    setDraft(old=>({...old,gameId:game?.id||'',playerId:'',teamId:'',gameTime:game?formatET(game.tipoff):'',opponent:''}))
+    setDraft(old=>({...old,gameId:game?.id||'',playerId:'',teamId:'',gameTime:game?formatET(game.tipoff):'',tipoffISO:game?.tipoff||'',opponent:''}))
    }}><option value="">{scheduleState==='loading'?'Loading schedule…':scheduleState==='unavailable'?'Schedule unavailable — check feed':'Select scheduled NBA game'}</option>{schedule?.games.map(g=><option key={g.id} value={g.id}>{g.teams.map(t=>t.abbreviation).join(' vs ')} · {formatET(g.tipoff)} ET</option>)}</select></label>
    <label>Tipoff time (ET; from schedule)<input type="time" value={draft.gameTime||''} readOnly placeholder="Select a game"/></label>
    <label>Opponent<select value={draft.opponent} disabled={!!draft.lockedAt||!draft.gameId} onChange={e=>update('opponent',e.target.value)}><option value="">Select opponent</option>{schedule?.games.find(g=>g.id===draft.gameId)?.teams.map(t=><option key={t.id} value={t.abbreviation}>{t.abbreviation}</option>)}</select></label>
