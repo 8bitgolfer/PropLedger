@@ -41,7 +41,7 @@ Where a model projection was never saved, the journal and chart panel can show a
 
 ## Automatic grading
 
-The GitHub workflow **Refresh NBA scores and schedule** runs hourly (GitHub may delay scheduled jobs) or can be started manually from **Actions**. It refreshes game schedules and current rosters and archives final box scores under `public/results/YYYY-MM-DD.json`. It never deletes older dates during its normal rolling refresh.
+The GitHub workflow **Refresh NBA scores and schedule** runs on an approximately 20-minute scheduled cadence (GitHub may delay scheduled jobs) or can be started manually from **Actions**. It refreshes game schedules and current rosters and archives final box scores under `public/results/YYYY-MM-DD.json`. It never deletes older dates during its normal rolling refresh.
 
 New picks should be created by selecting their game from the schedule and their player from that team's roster. This stores the official game and player IDs. Existing legacy picks without IDs fall back to an unambiguous full-name, date and opponent match; uncertain matches remain pending.
 
@@ -94,3 +94,9 @@ npm run build
 - No real-time player props, sportsbook line imports or account synchronization.
 - Automatic box-score matching and grading are best-effort and require successful GitHub Actions execution.
 - Predictions entered after tipoff cannot be retroactively locked as pregame model predictions.
+
+## Automatic end-of-game updates
+
+The NBA archive workflow now publishes GitHub Pages itself after fetching and committing the latest final box scores. This is essential because commits performed by the default GitHub Actions token do **not** trigger the separate push-based Pages deployment workflow. Once a game becomes final and the next scheduled run succeeds, the latest archive and rebuilt website are deployed together. During an open browser session the journal checks published results about every 15 minutes; page refresh or reopening also rechecks. Historical career-H2H backfill is restricted to the daily scheduled run or manually dispatched runs so it cannot delay ordinary final-result refreshes.
+
+The archive schedule runs approximately every 20 minutes, subject to GitHub's scheduling delays. A finalized box score, GitHub Actions success, Pages deployment, and the next browser poll are all needed for the change to appear. Existing entries can be automatically graded as watchlist items without counting toward locked-model performance metrics. Player DNPs, missing individual box scores and ambiguous player matches remain unresolved rather than being declared wins or losses.
