@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/update_nba_results.py'
       - 'scripts/build_insights.py'
+      - 'scripts/backfill_h2h.py'
       - '.github/workflows/nba-results.yml'
   schedule:
     - cron: '23 * * * *'
@@ -26,6 +27,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,6 +43,8 @@ jobs:
           else
             python scripts/update_nba_results.py
           fi
+      - name: Expand prior-season H2H history (bounded batch)
+        run: python scripts/backfill_h2h.py
       - name: Build historical chart index
         run: python scripts/build_insights.py
       - name: Commit archive and schedule
