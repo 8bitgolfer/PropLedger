@@ -16,6 +16,21 @@
 - Supports optional **private Supabase cloud backup and restore** with email authentication and row-level security
 - Continues working with locally saved browser journal data when cloud backup is unconfigured
 
+## Graph-based "Why This Pick"
+
+Each prop's expandable research drawer now has an Outlier-style, independently designed analysis panel:
+
+- **LAST 5:** most recent five archived games before the prediction date, with per-game bars
+- **LAST 10:** last ten archived games
+- **H2H:** archived prior games against the selected opponent
+- **2026–27:** archived games in the current NBA season
+- A visible **prop-line marker**, per-game green/orange results, sample size, average and historical coverage
+- A separate **defensive matchup spectrum** (red → orange → green). This is a transparent **team-level opponent statistical allowance proxy**, not a player-specific defensive matchup model. The polarity follows the saved More/Less selection.
+
+The dashboard never fabricates missing historical data. Unavailable games and incomplete history show explicit empty states. The hourly archive workflow publishes `public/insights.json` from verified final NBA box scores. On the first regular run it attempts a current-season backfill; older H2H data requires an optional manual historical backfill.
+
+**Important:** Only games completed **before the saved prediction date** count toward displayed research charts. The defense heat scale is descriptive, not a calibrated probability or statement that a bet is +EV. Its shade depends on opponent-team total allowed per game and a minimum history threshold.
+
 ## Automatic grading
 
 The GitHub workflow **Refresh NBA scores and schedule** runs hourly (GitHub may delay scheduled jobs) or can be started manually from **Actions**. It refreshes game schedules and current rosters and archives final box scores under `public/results/YYYY-MM-DD.json`. It never deletes older dates during its normal rolling refresh.
