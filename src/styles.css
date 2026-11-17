@@ -30,3 +30,18 @@ tr.why-row td{padding:0!important;background:#0e171b;border-bottom:1px solid #2c
 .why-row .rationale-row summary{padding:10px 16px;color:#b4f44d;font-size:11px;letter-spacing:.2px}
 .why-row .rationale-row>div{padding:7px 17px 18px;color:#a5b6bf;font-size:12px;line-height:1.75;white-space:pre-wrap;max-width:100%}
 .why-row:hover td{background:#121f21}
+
+
+/* Historical archive, finalized forecasts and private backups */
+.locked-alert,.locked-hint{grid-column:1/-1;background:#202a1e;border:1px solid #526542;color:#c8e5ac;padding:11px 13px;font-size:12px;line-height:1.6}
+.locked-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
+.locked-fields:disabled{opacity:.66}
+.locked-fields:disabled input,.locked-fields:disabled select,.locked-fields:disabled textarea{cursor:not-allowed}
+.journal-actions{display:flex;gap:5px}.lock-btn{color:#b4f44d;border-color:#4e6539}
+.lock-label{font:10px 'DM Mono',monospace!important;color:#b4f44d!important;margin:12px 0 0}.correction-note{border-left:2px solid #b4f44d;padding:9px 13px;background:#172219}
+.cloud-panel{border:1px solid #2d4138;background:#101a1e;padding:25px;margin:25px 0}
+.cloud-panel p{color:#a0afb7;font-size:12px;line-height:1.8}.cloud-panel code{color:#b4f44d}
+.cloud-panel h3{margin:0 0 10px;font-size:18px}.cloud-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0}
+.cloud-row input{background:#081016;color:#e8f1f5;border:1px solid #32434b;padding:12px;min-width:250px;max-width:100%}
+.cloud-row button{display:inline-flex;align-items:center;gap:8px}
+.cloud-status{color:#c8f99d!important;font-weight:600}
