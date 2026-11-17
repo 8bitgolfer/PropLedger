@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check Python archive script
-        run: python -m py_compile scripts/update_nba_results.py scripts/build_insights.py scripts/backfill_h2h.py
+        run: python -m py_compile scripts/update_nba_results.py scripts/build_insights.py scripts/backfill_h2h.py scripts/merge_generated_archive.py
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
       - name: Typecheck and build frontend
