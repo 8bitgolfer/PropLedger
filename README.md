@@ -2,6 +2,18 @@
 
 **Track the picks. Measure the edge.** A personal NBA prediction and research accuracy journal, hosted on GitHub Pages. There is **no profit/loss, stake or bankroll dashboard**.
 
+## November 2026 visual redesign
+
+PropLedger now has exactly **three primary pages** with a shared dark charcoal and lime-green interface:
+
+- **Results** — an interactive calendar starting **November 16, 2026**, with daily `wins / graded picks (hit rate)`, completed-pick table, monthly summary and separate unverified research-watchlist outcomes.
+- **Picks** — a clean, compact date-specific table without player portraits, search fields, or name badges; clicking a row opens saved line, projection, edge, research graphs, historical career H2H and opponent-matchup detail.
+- **Analytics** — overall finalized-model record, historical cumulative hit-rate trend, stat-market performance, recent results and data backup controls. No Settings page, ROI, profit/loss, bankroll or unit tracking.
+
+The displayed stats are derived **only from stored records**. Image concepts were visual references, not sources of genuine 4/5 or 80% results. Watchlist/draft entries can receive final NBA box scores automatically, but they are never counted in official locked-model hit rates. Predictions cannot be retroactively locked after tipoff to inflate historic performance.
+
+Scores are imported by GitHub Actions on an approximately 20-minute schedule (delays possible), deployed through the same NBA results workflow, and rechecked by the browser every five minutes and when the page regains focus. The frontend keeps existing `propledger-v1` localStorage keys, IDs and historical records intact.
+
 ## What the tracker does
 
 - Shows the prediction's game date and the actual NBA tipoff time in Eastern Time
