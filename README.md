@@ -1,43 +1,73 @@
 # PropLedger
 
-**Track the picks. Measure the edge.**
+**Track the picks. Measure the edge.** A personal NBA prediction and research accuracy journal, hosted on GitHub Pages. There is **no profit/loss, stake or bankroll dashboard**.
 
-A browser-based NBA player prop prediction tracker focused on *research accuracy*, not gambling profit or bankroll management.
+## What the tracker does
 
-## Included
+- Shows the prediction's game date and the actual NBA tipoff time in Eastern Time
+- Provides an expandable **+ WHY THIS PICK** research explanation immediately beneath every entry
+- Resolves current NBA games through scheduled game IDs, and players through ESPN roster player IDs when available
+- Records projection, original line, forecast probability, final box-score result and hit/loss/push status
+- Keeps research watchlists separate from timestamp-locked final recommendations
+- Locks final model predictions **before official tipoff**; postgame correction notes are saved separately
+- Automatically grades points, assists, rebounds, three-pointers, steals, blocks and supported combined markets from published final NBA box scores
+- Permanently retains historical score files per Eastern game date; supports manual historical date-range backfills
+- Tracks model accuracy and projection error without collecting financial betting information
+- Supports optional **private Supabase cloud backup and restore** with email authentication and row-level security
+- Continues working with locally saved browser journal data when cloud backup is unconfigured
 
-- Dark analytics-terminal dashboard
-- Date **and Eastern Time tipoff** for each tracked pick
-- Expandable **+ WHY THIS PICK** explanation directly beneath each journal entry
-- Predicted statistic, line, actual statistic and win/loss/push result
-- Accurate separation of watchlist targets from final model recommendations
-- Model hit rate, breakdowns by statistical category and projection error
-- **Automatic grading from completed NBA games** using a regularly updated score cache
-- JSON backup export/import; predictions remain in the browser's localStorage
+## Automatic grading
 
-## How automatic grading works
+The GitHub workflow **Refresh NBA scores and schedule** runs hourly (GitHub may delay scheduled jobs) or can be started manually from **Actions**. It refreshes game schedules and current rosters and archives final box scores under `public/results/YYYY-MM-DD.json`. It never deletes older dates during its normal rolling refresh.
 
-The GitHub Action `Refresh NBA box scores` runs hourly (subject to GitHub scheduling delays) and on manual dispatch. It fetches recently completed NBA games from ESPN's **unofficial** publicly reachable site endpoints, extracts player box scores, then commits `public/nba-results.json`. A GitHub Pages deployment builds the latest published results into the website.
+New picks should be created by selecting their game from the schedule and their player from that team's roster. This stores the official game and player IDs. Existing legacy picks without IDs fall back to an unambiguous full-name, date and opponent match; uncertain matches remain pending.
 
-The website checks the published feed when opened and every fifteen minutes while open. It only grades supported markets (points, rebounds, assists, three-pointers made, and their included combined categories). It matches on **local Eastern game date, opponent, and exact normalized player name**. Missing, ambiguous, unsupported, or incomplete records remain pending rather than being guessed. DNP and void rules are not inferred from absent box-score rows.
+The website checks archived results when opened and about every 15 minutes while open. DNP, no posted stats, unresolved name matches or unavailable markets stay pending until a reliable resolution is available. Official platform-specific injury protections and settlement rules are not inferred.
 
-**Important:** An unofficial third-party endpoint can change, be temporarily unavailable or return incomplete data. Automatic grading is best-effort, not guaranteed, and does not eliminate the need for occasional verification. The initial November 16 records are *unverified watchlist ideas*, not final bets.
+### Historical backfill
 
-## Publishing
+On GitHub open **Actions → Refresh NBA scores and schedule → Run workflow**. Optionally specify `start_date` and `end_date` in ISO format, e.g. `2026-11-01` and `2026-11-16`. Each request can span at most 90 days; run successive ranges for longer periods. Already archived finals persist.
 
-In repository **Settings → Pages**, set Source to **GitHub Actions**. The deployment workflow builds this React/Vite application to `https://8bitgolfer.github.io/PropLedger/`.
+**Warning:** ESPN's public site API is unofficial, can change without notice and has not been verified in a live end-to-end test here.
 
-In repository **Settings → Actions → General**, set Workflow permissions to **Read and write permissions** if the scheduled box-score workflow cannot commit results. You can also open **Actions → Refresh NBA box scores → Run workflow** to request a refresh.
+## Prediction integrity
 
-## Local development
+Use **Add prop** to save a draft. Verify the actual line and any research rationale, then choose **LOCK** in the journal **before the selected game's official tipoff**. Locked predictions contribute to model hit rate only once a final grade is available. In the application UI, original fields are read-only after locking; only separate correction notes can be added.
+
+This is a browser-side safeguard, *not cryptographically tamper-proof*. Anyone with direct access to their browser storage could modify the underlying data. A future server-side append-only signed log would be needed for independently auditable immutability.
+
+## GitHub Pages publishing
+
+1. In **Settings → Pages**, choose **GitHub Actions** as the deployment source.
+2. In **Settings → Actions → General**, ensure workflow permissions permit writing repository contents, so score archives can be committed.
+3. Check **Actions → Deploy PropLedger** for a successful build before opening `https://8bitgolfer.github.io/PropLedger/`.
+4. Check **Actions → Refresh NBA scores and schedule** for successful score updates.
+
+## Private cloud backup — optional setup
+
+Cloud backups require a separate account/database; **they are not active simply because files were committed**. Do not store personal pick histories or Supabase service-role keys in this public repository.
+
+1. Create a private Supabase project.
+2. In its SQL editor, run `supabase/schema.sql` to create a table protected by row-level security (RLS).
+3. In Supabase Auth, enable email OTP/magic links, set your site URL to `https://8bitgolfer.github.io/PropLedger/`, and allow that redirect URL.
+4. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, create `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` using your project's public URL and publishable/anon key. **Never add the service-role key.**
+5. Redeploy **Deploy PropLedger**. On the Analytics page, sign in using an email link to enable **Back up to cloud** and **Restore from cloud**.
+6. A cloud restore replaces this browser's local journal only after explicit confirmation. Export a local JSON backup before restoring.
+
+Backups are **manual and private per authenticated user**, not live device-to-device synchronization. Local browser storage still works without this setup. Automatic synchronization with merge conflict management is a separate future project.
+
+## Development
 
 ```bash
 npm install
 npm run dev
+npm run build
 ```
 
-## Data preservation
+## Limitations
 
-The website runs on GitHub Pages with no account/database. Browser entries are **not shared across devices**. Export a backup periodically, especially before resetting browser storage. The generated NBA score feed is shared publicly, but your personal prediction journal stays on your device.
-
-No automatic collection of sportsbook lines, no betting-account linkage and no ROI/profit/loss tracking.
+- No verification yet of live workflows/build success in this session.
+- The legacy November 16 entries are unverified *watchlist* ideas, not timestamp-locked model recommendations.
+- No real-time player props, sportsbook line imports or account synchronization.
+- Automatic box-score matching and grading are best-effort and require successful GitHub Actions execution.
+- Predictions entered after tipoff cannot be retroactively locked as pregame model predictions.
