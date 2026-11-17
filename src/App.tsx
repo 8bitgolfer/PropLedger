@@ -180,14 +180,15 @@ function App(){
  const finalPicks=validPicks.filter(p=>p.lockedAt)
  const completePicks=finalPicks.filter(p=>p.status==='win'||p.status==='loss')
  const resultsByDay=(date:string)=>validPicks.filter(p=>p.date===date)
- const gradeByDay=(date:string)=>completePicks.filter(p=>p.date===date)
+ const gradeByDay=(date:string)=>validPicks.filter(p=>p.date===date&&(p.status==='win'||p.status==='loss'))
+ const modelByDay=(date:string)=>completePicks.filter(p=>p.date===date)
  const daily=resultsByDay(selectedDay)
  const dayGraded=gradeByDay(selectedDay)
  const dayWins=dayGraded.filter(p=>p.status==='win').length
  const dayLosses=dayGraded.filter(p=>p.status==='loss').length
  const selectedMonth=selectedDay.slice(0,7)
- const monthPicks=finalPicks.filter(p=>p.date.startsWith(selectedMonth))
- const monthGraded=completePicks.filter(p=>p.date.startsWith(selectedMonth))
+ const monthPicks=validPicks.filter(p=>p.date.startsWith(selectedMonth))
+ const monthGraded=validPicks.filter(p=>p.date.startsWith(selectedMonth)&&(p.status==='win'||p.status==='loss'))
  const monthWins=monthGraded.filter(p=>p.status==='win').length
  const lastDays=[...new Set(completePicks.map(p=>p.date))].sort().reverse().slice(0,10)
  const visiblePick=validPicks.find(p=>p.id===selectedPick&&p.date===selectedDay)||validPicks.find(p=>p.date===selectedDay)||null
@@ -249,23 +250,21 @@ function App(){
        </button>
       })}
      </div>
-     <p className="pl-panel-note">Model results begin November 16, 2026. Calendar hit rates use finalized, graded predictions only; watchlist results are displayed separately.</p>
+     <p className="pl-panel-note">Tracking begins November 16, 2026. This calendar includes verified watchlist outcomes; official model performance in Analytics counts only pregame-locked predictions.</p>
     </section>
     <div className="pl-stack">
      <section className="pl-panel">
       <h2 className="pl-panel-heading">Completed Picks — {dayLabel(selectedDay)}</h2>
-      <div className="pl-feature-strip pl-feature-three"><div><span>Graded Picks</span><strong>{dayGraded.length}</strong></div><div><span>Hit Rate</span><strong className="pl-green">{hit(dayWins,dayGraded.length)}</strong></div><div><span>Record</span><strong>{dayGraded.length?dayWins+' – '+dayLosses:'—'}</strong></div></div>
+      <div className="pl-feature-strip pl-feature-three"><div><span>Tracked Results</span><strong>{dayGraded.length}</strong></div><div><span>Hit Rate</span><strong className="pl-green">{hit(dayWins,dayGraded.length)}</strong></div><div><span>Record</span><strong>{dayGraded.length?dayWins+' – '+dayLosses:'—'}</strong></div></div>
       <div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Player</th><th>Market</th><th>Pick</th><th>Actual</th><th>Result</th></tr></thead><tbody>
-       {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No finalized predictions have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><strong>{p.player}</strong><small>vs {p.opponent}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
+       {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No tracked picks have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><strong>{p.player}</strong><small>vs {p.opponent}{!p.lockedAt?" · Watchlist":""}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
       </tbody></table></div>
-      {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">{daily.filter(p=>!p.lockedAt).length} watchlist/draft pick(s) excluded from official model hit rate.
-       <div className="pl-research-watchlist"><strong>Research watchlist outcomes (not model picks)</strong>{daily.filter(p=>!p.lockedAt).map(p=><div className="pl-watchlist-row" key={p.id}><span>{p.player} · {p.side==='More'?'O':'U'} {p.line} {p.market}</span><span className={p.status==='win'?'pl-green':p.status==='loss'?'pl-red':''}>{p.status==='win'?'WIN':p.status==='loss'?'LOSS':p.status==='push'?'PUSH':p.status==='void'?'VOID':'AWAITING RESULT'}{p.actual!==null?' · '+p.actual:''}</span></div>)}</div>
-      </div>}
+      {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">Unverified watchlist picks are included in these daily tracked results but excluded from official locked-model accuracy.</div>}
      </section>
      <section className="pl-panel">
       <h2 className="pl-panel-heading">Monthly Summary — {monthLabel}</h2>
-      <div className="pl-summary-four"><div><span>Graded Picks</span><strong>{monthGraded.length}</strong></div><div><span>Wins</span><strong className="pl-green">{monthWins}</strong></div><div><span>Losses</span><strong className="pl-red">{monthGraded.length-monthWins}</strong></div><div className="pl-highlight"><span>Hit Rate</span><strong className="pl-green">{hit(monthWins,monthGraded.length)}</strong></div></div>
-      <div className="pl-month-foot">{monthPicks.length-monthGraded.length} additional finalized picks are pending, pushed or voided.</div>
+      <div className="pl-summary-four"><div><span>Tracked Results</span><strong>{monthGraded.length}</strong></div><div><span>Wins</span><strong className="pl-green">{monthWins}</strong></div><div><span>Losses</span><strong className="pl-red">{monthGraded.length-monthWins}</strong></div><div className="pl-highlight"><span>Hit Rate</span><strong className="pl-green">{hit(monthWins,monthGraded.length)}</strong></div></div>
+      <div className="pl-month-foot">{monthPicks.length-monthGraded.length} additional tracked picks are pending, pushed or voided.</div>
      </section>
     </div>
    </div>}
@@ -297,7 +296,7 @@ function App(){
      <section className="pl-panel"><h2 className="pl-panel-heading">Performance Trend</h2>{historyPts.length>0?<div className="pl-chart-scroll"><svg viewBox="0 0 620 230" aria-label="Cumulative model hit rate by date" role="img"><g stroke="#314149" strokeWidth="1">{[0,25,50,75,100].map(n=><g key={n}><line x1="35" x2="600" y1={205-n*1.75} y2={205-n*1.75}/><text x="4" y={209-n*1.75} fill="#91a1a7" fontSize="10">{n}%</text></g>)}</g><polyline points={chartPoints} fill="none" stroke="#a9f33e" strokeWidth="3"/>{historyPts.map((p,i)=><circle key={p.date} cx={35+i*(historyPts.length>1?550/(historyPts.length-1):0)} cy={205-p.rate*1.75} r="4" fill="#b6ff44"><title>{p.date}: {p.rate.toFixed(1)}%</title></circle>)}</svg><div className="pl-chart-labels"><span>{historyPts[0]?.date}</span><span>{historyPts[historyPts.length-1]?.date}</span></div></div>:<div className="pl-empty-row">Performance trends appear when finalized model picks have verified results.</div>}</section>
     </div>
     <section className="pl-panel pl-market-panel"><h2 className="pl-panel-heading">Market Performance</h2><div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Market</th><th>Picks</th><th>Wins</th><th>Losses</th><th>Hit Rate</th></tr></thead><tbody>{marketBreakdown.length===0?<tr><td colSpan={5} className="pl-empty-row">No finalized model picks graded yet.</td></tr>:marketBreakdown.map(m=><tr key={m.market}><td>{m.market}</td><td>{m.picks}</td><td>{m.wins}</td><td>{m.losses}</td><td className="pl-green">{hit(m.wins,m.picks)}</td></tr>)}</tbody></table></div></section>
-    <section className="pl-panel"><h2 className="pl-panel-heading">Recent Results</h2><div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Date</th><th>Picks</th><th>Wins</th><th>Losses</th><th>Hit Rate</th></tr></thead><tbody>{lastDays.length===0?<tr><td colSpan={5} className="pl-empty-row">No graded results from November 16 onward.</td></tr>:lastDays.map(d=>{const all=gradeByDay(d),w=all.filter(p=>p.status==='win').length;return <tr key={d}><td>{dayLabel(d)}</td><td>{all.length}</td><td>{w}</td><td>{all.length-w}</td><td className="pl-green">{hit(w,all.length)}</td></tr>})}</tbody></table></div></section>
+    <section className="pl-panel"><h2 className="pl-panel-heading">Recent Results</h2><div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Date</th><th>Picks</th><th>Wins</th><th>Losses</th><th>Hit Rate</th></tr></thead><tbody>{lastDays.length===0?<tr><td colSpan={5} className="pl-empty-row">No graded results from November 16 onward.</td></tr>:lastDays.map(d=>{const all=modelByDay(d),w=all.filter(p=>p.status==='win').length;return <tr key={d}><td>{dayLabel(d)}</td><td>{all.length}</td><td>{w}</td><td>{all.length-w}</td><td className="pl-green">{hit(w,all.length)}</td></tr>})}</tbody></table></div></section>
     <section className="pl-panel"><h2 className="pl-panel-heading">Key Takeaways</h2><div className="pl-takeaways">{completePicks.length>0?<><p><Check size={16}/> {hit(completePicks.filter(p=>p.status==='win').length,completePicks.length)} hit rate across {completePicks.length} graded model picks.</p><p><Check size={16}/> {marketBreakdown.length?marketBreakdown.slice().sort((a,b)=>b.wins/b.picks-a.wins/a.picks)[0]?.market+' has the highest recorded hit rate among your tracked markets.':'Market insights will appear with graded data.'}</p><p><Check size={16}/> {validPicks.filter(p=>p.autoGraded).length} picks were automatically graded from archived box scores.</p></>:<p><Activity size={18}/> Your analytics will populate after finalized predictions receive verified game results.</p>}</div><div className="pl-data-tools"><button className="pl-square" onClick={exportData}><Download size={15}/> Export JSON</button><button className="pl-square" onClick={()=>fileRef.current?.click()}><FileUp size={15}/> Import JSON</button></div><CloudBackup picks={picks} onRestore={records=>{setPicks(records);setNotice('Cloud journal restored.')}}/></section>
    </div>}
    <footer className="pl-footer"><span className="pl-feed-dot"/> {feedState==='offline'?'NBA archive unavailable':feedState==='loading'?'Checking NBA results…':'NBA automatic grading enabled'} · {lastResultsUpdate?'Last checked '+new Date(lastResultsUpdate).toLocaleTimeString('en-US',{timeZone:'America/New_York'}):'Waiting for first result check'} · Real pick records only</footer>
