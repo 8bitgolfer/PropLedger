@@ -14,7 +14,7 @@ type Sample={game:NBAStatGame;value:number;opp:string}
 function histories(pick:PickForInsights,data:InsightFeed):Sample[]{
  const out:Sample[]=[]
  for(const game of data.games){
-  if(game.date>=pick.date||game.date<season(pick.date))continue
+  if(game.date>=pick.date)continue
   const people=game.players.filter(p=>pick.playerId?p.id===pick.playerId:norm(p.name)===norm(pick.player))
   if(people.length!==1)continue
   const player=people[0]
@@ -54,7 +54,7 @@ function defense(pick:PickForInsights,data:InsightFeed):Defense|null{
 export default function PickInsights({pick,data,state}:{pick:PickForInsights;data:InsightFeed|null;state:'loading'|'ready'|'unavailable'}){
  const [view,setView]=useState<View>('l5')
  const history=useMemo(()=>data?histories(pick,data):[],[pick,data])
- const rows=view==='l5'?history.slice(-5):view==='l10'?history.slice(-10):view==='h2h'?history.filter(r=>norm(r.opp)===norm(pick.opponent)):history
+ const rows=view==='l5'?history.slice(-5):view==='l10'?history.slice(-10):view==='h2h'?history.filter(r=>norm(r.opp)===norm(pick.opponent)):history.filter(r=>r.game.date>=season(pick.date))
  const rating=useMemo(()=>data?defense(pick,data):null,[pick,data])
  const hits=rows.filter(r=>pick.side==='More'?r.value>pick.line:r.value<pick.line).length
  const avg=rows.length?rows.reduce((a,r)=>a+r.value,0)/rows.length:0
