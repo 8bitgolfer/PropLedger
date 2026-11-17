@@ -132,6 +132,20 @@ def process(day: dt.date) -> bool:
     print(f"{date}: {len(schedule)} scheduled / {len(results)} newly retrieved finals / {len(merged)} archived finals")
     return True
 
+def refresh_roster(team_id: str) -> list[dict]:
+    data = fetch(BASE + "teams/" + team_id + "/roster")
+    if not data:
+        return []
+    athletes = data.get("athletes") or []
+    result = []
+    for entry in athletes:
+        athlete = entry.get("athlete") or entry
+        ident = athlete.get("id")
+        name = athlete.get("displayName") or athlete.get("fullName")
+        if ident and name:
+            result.append({"id": str(ident), "name": name, "teamId": team_id})
+    return result
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", help="YYYY-MM-DD (optional historical backfill)")
@@ -152,6 +166,36 @@ def main() -> None:
             processed += 1
         day += dt.timedelta(days=1)
         time.sleep(0.08)
+    # Refresh current player IDs from each team's published roster only during
+    # normal hourly refresh (not every historical backfill).
+    if not args.start:
+        teams: set[str] = set()
+        for delta in range(5):
+            date = (today + dt.timedelta(days=delta)).isoformat()
+            file = PUBLIC / "schedule" / f"{date}.json"
+            if file.exists():
+                try:
+                    payload = json.loads(file.read_text(encoding="utf-8"))
+                    for game in payload.get("games", []):
+                        teams.update(t.get("id", "") for t in game.get("teams", []) if t.get("id"))
+                except (OSError, ValueError):
+                    pass
+        existing_roster = PUBLIC / "nba-players.json"
+        all_players = {}
+        if existing_roster.exists():
+            try:
+                all_players = {str(p["id"]): p for p in json.loads(existing_roster.read_text(encoding="utf-8")).get("players", []) if p.get("id")}
+            except (OSError, ValueError, KeyError):
+                pass
+        fresh_count = 0
+        for team_id in sorted(teams):
+            for player in refresh_roster(team_id):
+                all_players[player["id"]] = player
+                fresh_count += 1
+            time.sleep(0.08)
+        if fresh_count:
+            existing_roster.write_text(json.dumps({"updatedAt":dt.datetime.now(dt.timezone.utc).isoformat(),"players":list(all_players.values())},separators=(",",":"))+"\n",encoding="utf-8")
+            print(f"Refreshed {fresh_count} roster player records")
     if not processed:
         raise SystemExit("No date returned valid NBA schedule data; archive preserved.")
     print(f"Finished {processed} scoreboard dates.")
