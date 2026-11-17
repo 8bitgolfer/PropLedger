@@ -8,6 +8,8 @@ export type PickForInsights={date:string;player:string;playerId?:string;teamId?:
 type View='l5'|'l10'|'h2h'|'season'
 const keys:Record<string,keyof NBAStatPlayer>={'Points':'points','Rebounds':'rebounds','Assists':'assists','3PT Made':'threes','PRA':'pra','Points + Assists':'pa','Points + Rebounds':'pr','Rebounds + Assists':'ra','Steals':'steals','Blocks':'blocks'}
 const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')
+const teamAliases:Record<string,string>={gs:'gsw',gsw:'gsw',no:'nop',nop:'nop',ny:'nyk',nyk:'nyk',sa:'sas',sas:'sas',utah:'uta',ut:'uta',uta:'uta',wsh:'was',was:'was',phoe:'phx',pho:'phx',phx:'phx',brk:'bkn',bkn:'bkn',bknets:'bkn'}
+const teamKey=(abbr:string)=>teamAliases[norm(abbr)]||norm(abbr)
 function season(date:string){const y=Number(date.slice(0,4));return String(Number(date.slice(5,7))>=10?y:y-1)+'-10-01'}
 function stat(m:string,p:NBAStatPlayer):number|null{const k=keys[m];if(!k)return null;const v=p[k];return typeof v==='number'&&Number.isFinite(v)?v:null}
 type Sample={game:NBAStatGame;value:number;opp:string}
@@ -20,7 +22,7 @@ function histories(pick:PickForInsights,data:InsightFeed):Sample[]{
   const player=people[0]
   // Track the same athlete across trades: historical H2H follows player ID,
   // not the club they happen to play for on the prediction date.
-  const other=game.teams.find(t=>t.id!==player.teamId&&t.abbreviation!==player.team)
+  const other=game.teams.find(t=>t.id!==player.teamId&&teamKey(t.abbreviation)!==teamKey(player.team))
   const value=stat(pick.market,player)
   if(other&&value!==null)out.push({game,value,opp:other.abbreviation})
  }
@@ -57,7 +59,7 @@ function defense(pick:PickForInsights,data:InsightFeed):Defense|null{
  }
  const eligible=[...grouped.entries()].filter(([,r])=>r.games>=5).map(([id,r])=>({...r,id,avg:r.total/r.games})).sort((a,b)=>a.avg-b.avg)
  if(eligible.length<10)return null
- const target=eligible.find(r=>norm(r.abbr)===norm(pick.opponent))
+ const target=eligible.find(r=>teamKey(r.abbr)===teamKey(pick.opponent))
  if(!target)return null
  const percentile=100*eligible.findIndex(r=>r.id===target.id)/Math.max(1,eligible.length-1)
  const score=pick.side==='More'?percentile:100-percentile
@@ -66,7 +68,7 @@ function defense(pick:PickForInsights,data:InsightFeed):Defense|null{
 export default function PickInsights({pick,data,state}:{pick:PickForInsights;data:InsightFeed|null;state:'loading'|'ready'|'unavailable'}){
  const [view,setView]=useState<View>('l5')
  const history=useMemo(()=>data?histories(pick,data):[],[pick,data])
- const rows=view==='l5'?history.slice(-5):view==='l10'?history.slice(-10):view==='h2h'?history.filter(r=>norm(r.opp)===norm(pick.opponent)):history.filter(r=>r.game.date>=season(pick.date))
+ const rows=view==='l5'?history.slice(-5):view==='l10'?history.slice(-10):view==='h2h'?history.filter(r=>teamKey(r.opp)===teamKey(pick.opponent)):history.filter(r=>r.game.date>=season(pick.date))
  const rating=useMemo(()=>data?defense(pick,data):null,[pick,data])
  const baseline=useMemo(()=>historicalBaseline(pick,data),[pick,data])
  const hits=rows.filter(r=>pick.side==='More'?r.value>pick.line:r.value<pick.line).length
