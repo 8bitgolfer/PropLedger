@@ -118,8 +118,12 @@ function App(){
    }))
   }
   void fetchArchive()
-  const interval=window.setInterval(()=>void fetchArchive(),15*60*1000)
-  return()=>{alive=false;window.clearInterval(interval)}
+  const interval=window.setInterval(()=>void fetchArchive(),5*60*1000)
+  const onFocus=()=>void fetchArchive()
+  const onVisibility=()=>{if(document.visibilityState==='visible')void fetchArchive()}
+  window.addEventListener('focus',onFocus)
+  document.addEventListener('visibilitychange',onVisibility)
+  return()=>{alive=false;window.clearInterval(interval);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisibility)}
  },[picks.map(p=>p.date+':'+p.status).join('|')])
  useEffect(()=>{
   let alive=true
@@ -186,7 +190,7 @@ function App(){
  const monthGraded=completePicks.filter(p=>p.date.startsWith(selectedMonth))
  const monthWins=monthGraded.filter(p=>p.status==='win').length
  const lastDays=[...new Set(completePicks.map(p=>p.date))].sort().reverse().slice(0,10)
- const visiblePick=validPicks.find(p=>p.id===selectedPick)||validPicks.filter(p=>p.date===selectedDay)[0]||null
+ const visiblePick=validPicks.find(p=>p.id===selectedPick&&p.date===selectedDay)||validPicks.find(p=>p.date===selectedDay)||null
  const dayLabel=(day:string)=>new Date(day+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
  const monthLabel=new Date(selectedMonth+'-15T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'})
  const monthChange=(difference:number)=>{
