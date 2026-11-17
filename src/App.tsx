@@ -258,7 +258,9 @@ function App(){
       <div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Player</th><th>Market</th><th>Pick</th><th>Actual</th><th>Result</th></tr></thead><tbody>
        {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No finalized predictions have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><strong>{p.player}</strong><small>vs {p.opponent}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
       </tbody></table></div>
-      {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">{daily.filter(p=>!p.lockedAt).length} watchlist/draft pick(s) excluded from official model hit rate.</div>}
+      {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">{daily.filter(p=>!p.lockedAt).length} watchlist/draft pick(s) excluded from official model hit rate.
+       <div className="pl-research-watchlist"><strong>Research watchlist outcomes (not model picks)</strong>{daily.filter(p=>!p.lockedAt).map(p=><div className="pl-watchlist-row" key={p.id}><span>{p.player} · {p.side==='More'?'O':'U'} {p.line} {p.market}</span><span className={p.status==='win'?'pl-green':p.status==='loss'?'pl-red':''}>{p.status==='win'?'WIN':p.status==='loss'?'LOSS':p.status==='push'?'PUSH':p.status==='void'?'VOID':'AWAITING RESULT'}{p.actual!==null?' · '+p.actual:''}</span></div>)}</div>
+      </div>}
      </section>
      <section className="pl-panel">
       <h2 className="pl-panel-heading">Monthly Summary — {monthLabel}</h2>
