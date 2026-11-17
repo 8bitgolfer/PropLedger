@@ -31,6 +31,14 @@ The dashboard never fabricates missing historical data. Unavailable games and in
 
 **Important:** Only games completed **before the saved prediction date** count toward displayed research charts. The defense heat scale is descriptive, not a calibrated probability or statement that a bet is +EV. Its shade depends on opponent-team total allowed per game and a minimum history threshold.
 
+## H2H history and automatic projection baseline
+
+The Last 5 and Last 10 tabs include archived games before the chosen prediction date. H2H includes past games versus the specified opponent, even when the player has changed teams. If no matching historical matchup exists in the published archive, the tab says so instead of inventing statistics.
+
+The hourly NBA workflow now runs `scripts/backfill_h2h.py`, which fills the **previous NBA regular season** in bounded 40-day batches, most recent first, and persists its progress in `public/history-progress.json`. Several successful workflow runs may be needed before all previous-season H2H matchups appear. This is automatic once workflow permissions and publishing are working.
+
+Where a model projection was never saved, the journal and chart panel can show an **AUTO BASELINE** from available older box scores. It requires at least five verified earlier games and uses 60% of the previous 5-game mean plus 40% of the previous 10-game mean. It does **not** rewrite the saved model prediction, imply we made a pregame research forecast, or incorporate injuries and opponent adjustments. If the historical data is inadequate, the baseline remains unavailable.
+
 ## Automatic grading
 
 The GitHub workflow **Refresh NBA scores and schedule** runs hourly (GitHub may delay scheduled jobs) or can be started manually from **Actions**. It refreshes game schedules and current rosters and archives final box scores under `public/results/YYYY-MM-DD.json`. It never deletes older dates during its normal rolling refresh.
