@@ -137,8 +137,12 @@ def refresh_roster(team_id: str) -> list[dict]:
     if not data:
         return []
     athletes = data.get("athletes") or []
+    if isinstance(athletes, dict):
+        athletes = athletes.get("items") or []
     result = []
     for entry in athletes:
+        if not isinstance(entry, dict):
+            continue
         athlete = entry.get("athlete") or entry
         ident = athlete.get("id")
         name = athlete.get("displayName") or athlete.get("fullName")
@@ -194,7 +198,14 @@ def main() -> None:
                 fresh_count += 1
             time.sleep(0.08)
         if fresh_count:
-            existing_roster.write_text(json.dumps({"updatedAt":dt.datetime.now(dt.timezone.utc).isoformat(),"players":list(all_players.values())},separators=(",",":"))+"\n",encoding="utf-8")
+            previous = {}
+            if existing_roster.exists():
+                try:
+                    previous = {str(p["id"]): p for p in json.loads(existing_roster.read_text(encoding="utf-8")).get("players", []) if p.get("id")}
+                except (OSError, ValueError, KeyError):
+                    pass
+            if all_players != previous:
+                existing_roster.write_text(json.dumps({"updatedAt":dt.datetime.now(dt.timezone.utc).isoformat(),"players":list(all_players.values())},separators=(",",":"))+"\n",encoding="utf-8")
             print(f"Refreshed {fresh_count} roster player records")
     if not processed:
         raise SystemExit("No date returned valid NBA schedule data; archive preserved.")
