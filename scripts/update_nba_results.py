@@ -160,7 +160,13 @@ def main() -> None:
         start = dt.date.fromisoformat(args.start)
         end = dt.date.fromisoformat(args.end or args.start)
     else:
-        start, end = today - dt.timedelta(days=12), today + dt.timedelta(days=4)
+        # First deployment: collect the current season so Last 5/10 and
+        # season charts have history. Later refreshes only revisit recent dates.
+        archive = PUBLIC / "results"
+        has_history = archive.exists() and any(archive.glob("????-??-??.json"))
+        season_year = today.year if today.month >= 10 else today.year - 1
+        start = today - dt.timedelta(days=12) if has_history else dt.date(season_year, 10, 1)
+        end = today + dt.timedelta(days=4)
     if start > end or (end - start).days > 90:
         parser.error("Backfill must span 0–90 days with start <= end.")
     processed = 0
