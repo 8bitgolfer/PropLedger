@@ -18,7 +18,8 @@ function histories(pick:PickForInsights,data:InsightFeed):Sample[]{
   const people=game.players.filter(p=>pick.playerId?p.id===pick.playerId:norm(p.name)===norm(pick.player))
   if(people.length!==1)continue
   const player=people[0]
-  if(pick.teamId&&player.teamId!==pick.teamId)continue
+  // Track the same athlete across trades: historical H2H follows player ID,
+  // not the club they happen to play for on the prediction date.
   const other=game.teams.find(t=>t.id!==player.teamId&&t.abbreviation!==player.team)
   const value=stat(pick.market,player)
   if(other&&value!==null)out.push({game,value,opp:other.abbreviation})
