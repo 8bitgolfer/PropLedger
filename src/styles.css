@@ -23,3 +23,10 @@
 .rationale-row summary>span:last-child{display:flex;align-items:center;gap:8px;color:#b4f44d;font:10px 'DM Mono',monospace;white-space:nowrap}
 .rationale-row[open] summary>span:last-child svg{transform:rotate(180deg)}
 .rationale-row>div{padding:0 17px 20px;color:#9aabb5;line-height:1.8;font-size:12px;max-width:900px;white-space:pre-wrap}
+
+/* Each explanation sits immediately below its own prediction row */
+tr.why-row td{padding:0!important;background:#0e171b;border-bottom:1px solid #2c3b40}
+.why-row .rationale-row{border:0}
+.why-row .rationale-row summary{padding:10px 16px;color:#b4f44d;font-size:11px;letter-spacing:.2px}
+.why-row .rationale-row>div{padding:7px 17px 18px;color:#a5b6bf;font-size:12px;line-height:1.75;white-space:pre-wrap;max-width:100%}
+.why-row:hover td{background:#121f21}
