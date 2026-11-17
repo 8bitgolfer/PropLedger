@@ -19,7 +19,7 @@ def main() -> None:
     today = dt.datetime.now(ZoneInfo("America/New_York")).date()
     current_start_year = today.year if today.month >= 10 else today.year-1
     prev_start = dt.date(current_start_year-1, 10, 1)
-    prev_end = dt.date(current_start_year, 6, 30)
+    prev_end = dt.date(current_start_year, 4, 15)
     # Keep a previous-season archive for the current 2026-27 schedule.
     last = prev_end
     if PROGRESS.exists():
