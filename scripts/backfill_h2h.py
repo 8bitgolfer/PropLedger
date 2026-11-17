@@ -62,7 +62,7 @@ def main() -> None:
             "validDates": valid,
             "nextDate": next_date,
             "complete": completed
-        }, indent=2) + "\\n", encoding="utf-8")
+        }, indent=2) + "\n", encoding="utf-8")
         print(f"H2H archive batch {batch + 1}: {first} to {last}, {valid} valid dates, complete={completed}")
         if completed:
             break
