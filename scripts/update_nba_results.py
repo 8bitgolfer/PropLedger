@@ -9,6 +9,7 @@ import os
 import pathlib
 import urllib.request
 import time
+from zoneinfo import ZoneInfo
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "public" / "nba-results.json"
@@ -73,7 +74,7 @@ def main():
             if not players:continue
             teams=[(t.get("team") or {}).get("abbreviation","") for t in competition.get("competitors",[])]
             allgames.append({
-                "id":eventid, "date":str(event.get("date",""))[:10],
+                "id":eventid, "date":dt.datetime.fromisoformat(str(event.get("date","")).replace("Z","+00:00")).astimezone(ZoneInfo("America/New_York")).date().isoformat(),
                 "home":teams[0] if teams else "", "teams":teams,
                 "players":players,
                 "status":"final",
