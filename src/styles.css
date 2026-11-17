@@ -222,3 +222,7 @@ button{cursor:pointer}
 @media(max-width:530px){.pl-watchlist-row{flex-wrap:wrap}.pl-watchlist-row>span:last-child{text-align:left}}
 
 .pl-locked-audit{margin-top:15px;padding:13px 14px;background:#132016;border-left:3px solid #9ee51e;color:#bfd3b8;font-size:12px;line-height:1.6}
+
+/* Projection direction colors: favorable Under = red, favorable Over = lime. */
+.pl-under-projection{color:#ff626e!important}
+.pl-neutral{color:#c3d0d7!important}
