@@ -47,13 +47,39 @@ jobs:
         run: python scripts/backfill_h2h.py
       - name: Build historical chart index
         run: python scripts/build_insights.py
-      - name: Commit archive and schedule
+      - name: Publish historical archive without rebase conflicts
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A public/
-          if ! git diff --cached --quiet; then
+
+          # Preserve this run's results outside the checkout. The remote may
+          # have advanced during the long historical backfill.
+          mkdir -p /tmp/propledger-archive-snapshot
+          cp -a public/. /tmp/propledger-archive-snapshot/
+
+          # Reconstruct from the newest main and merge game IDs instead of
+          # rebasing two generated JSON versions against each other.
+          for attempt in 1 2 3 4; do
+            echo "Publishing archive attempt $attempt"
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/merge_generated_archive.py --source /tmp/propledger-archive-snapshot
+            python scripts/build_insights.py
+            git add -A public/
+
+            if git diff --cached --quiet; then
+              echo "NBA archive is already up to date."
+              exit 0
+            fi
             git commit -m "Archive NBA schedules and final box scores"
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
+            if git push origin HEAD:main; then
+              echo "Archived player results and H2H history published."
+              exit 0
+            fi
+            echo "main advanced during publish. Re-merging against newest commit."
+            sleep 3
+          done
+          echo "Failed to publish after four retries." >&2
+          exit 1
