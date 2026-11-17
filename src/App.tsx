@@ -210,6 +210,11 @@ function App(){
  const marketBreakdown=markets.map(m=>{const rows=completePicks.filter(p=>p.market===m);return {market:m,picks:rows.length,wins:rows.filter(p=>p.status==='win').length,losses:rows.filter(p=>p.status==='loss').length}}).filter(m=>m.picks)
  const hit=(wins:number,count:number)=>count?Math.round(100*wins/count)+'%':'—'
  const resultTone=(wins:number,count:number)=>count===0?'muted':wins/count>=.6?'good':wins/count>=.4?'mid':'bad'
+ // Projection color reflects the pick direction, not the final game outcome.
+ // Favorable Overs are green, favorable Unders are red, and projections
+ // that do not support the selected side remain neutral.
+ const projectionTone=(p:Pick,value:number|null):string=>
+  value===null?'pl-neutral':p.side==='More'?(value>p.line?'pl-green':'pl-neutral'):(value<p.line?'pl-under-projection':'pl-neutral')
  const datePicks=validPicks.filter(p=>p.date===selectedDay)
  const displayList=screen==='picks'?datePicks:daily
  const activeMonthDays=[...new Set(completePicks.map(p=>p.date))].sort()
@@ -275,7 +280,7 @@ function App(){
      <div className="pl-table-wrap"><table className="pl-table pl-pick-table"><thead><tr><th>Player</th><th>Matchup</th><th>Market</th><th>Pick</th><th>Projection</th></tr></thead><tbody>
       {displayList.length===0?<tr><td colSpan={5} className="pl-empty-row">No picks on this date. Add a pick to start tracking.</td></tr>:displayList.map(p=>{
        const projection=p.projection??historicalBaseline(p,insightFeed)
-       return <tr className={'pl-pick-row '+(visiblePick?.id===p.id?'is-current':'')} key={p.id} onClick={()=>setSelectedPick(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelectedPick(p.id)}}} tabIndex={0} aria-selected={visiblePick?.id===p.id}><td className="pl-player-cell"><strong>{p.player}</strong></td><td>vs {p.opponent}<small>{displayTime(p.gameTime)} ET</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td className="pl-green pl-projection-cell">{projection===null?'—':projection.toFixed(1)}{p.projection===null&&projection!==null?<small>AUTO BASELINE</small>:null}</td></tr>
+       return <tr className={'pl-pick-row '+(visiblePick?.id===p.id?'is-current':'')} key={p.id} onClick={()=>setSelectedPick(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelectedPick(p.id)}}} tabIndex={0} aria-selected={visiblePick?.id===p.id}><td className="pl-player-cell"><strong>{p.player}</strong></td><td>vs {p.opponent}<small>{displayTime(p.gameTime)} ET</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td className={projectionTone(p,projection)+" pl-projection-cell"}>{projection===null?'—':projection.toFixed(1)}{p.projection===null&&projection!==null?<small>AUTO BASELINE</small>:null}</td></tr>
       })}
      </tbody></table></div>
      <p className="pl-panel-note">Select a row to inspect the saved prediction and its research. Watchlist entries are not counted as locked model picks.</p>
@@ -284,7 +289,7 @@ function App(){
      <h2 className="pl-panel-heading">Pick Details</h2>
      {!visiblePick?<div className="pl-empty-details"><Target size={45}/>Select a pick to view research, trends and matchup statistics.</div>:<>
       <div className="pl-details-head"><div><h3>{visiblePick.player}</h3><p>{visiblePick.market} · vs {visiblePick.opponent} · {dayLabel(visiblePick.date)}</p></div><div className="pl-details-actions">{!visiblePick.lockedAt&&visiblePick.status!=='win'&&visiblePick.status!=='loss'&&<button className="pl-add-btn" onClick={()=>lock(visiblePick)}>Lock Pick</button>}<button className="pl-square pl-edit" onClick={()=>start(visiblePick)}>{visiblePick.lockedAt?'Notes':'Edit'}</button></div></div>
-      <div className="pl-feature-strip pl-feature-four"><div><span>Line</span><strong>{visiblePick.line}</strong></div><div><span>Projection</span><strong className="pl-green">{(visiblePick.projection??historicalBaseline(visiblePick,insightFeed))?.toFixed(1)??'—'}</strong></div><div><span>Edge</span><strong className="pl-green">{visiblePick.projection!==null?(visiblePick.side==='More'?visiblePick.projection-visiblePick.line:visiblePick.line-visiblePick.projection).toFixed(1):'—'}</strong></div><div><span>Result</span><strong className={visiblePick.status==='win'?'pl-green':visiblePick.status==='loss'?'pl-red':''}>{visiblePick.status==='win'?'WIN':visiblePick.status==='loss'?'LOSS':visiblePick.lockedAt?'LOCKED':'DRAFT'}</strong></div></div>
+      <div className="pl-feature-strip pl-feature-four"><div><span>Line</span><strong>{visiblePick.line}</strong></div><div><span>Projection</span><strong className={projectionTone(visiblePick,visiblePick.projection??historicalBaseline(visiblePick,insightFeed))}>{(visiblePick.projection??historicalBaseline(visiblePick,insightFeed))?.toFixed(1)??'—'}</strong></div><div><span>Edge</span><strong className="pl-green">{visiblePick.projection!==null?(visiblePick.side==='More'?visiblePick.projection-visiblePick.line:visiblePick.line-visiblePick.projection).toFixed(1):'—'}</strong></div><div><span>Result</span><strong className={visiblePick.status==='win'?'pl-green':visiblePick.status==='loss'?'pl-red':''}>{visiblePick.status==='win'?'WIN':visiblePick.status==='loss'?'LOSS':visiblePick.lockedAt?'LOCKED':'DRAFT'}</strong></div></div>
       <PickInsights key={visiblePick.id} pick={visiblePick} data={insightFeed} state={insightState}/>
       {visiblePick.correctionNotes&&<div className="pl-correction">Postgame notes: {visiblePick.correctionNotes}</div>}
      </>}
