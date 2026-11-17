@@ -14,7 +14,11 @@ const resultFor=(market:string,p:NBAPlayer):number|null=>{
  const values:Record<string,number>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra}
  return Number.isFinite(values[market])?values[market]:null
 }
-const localDate=(iso:string)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(iso))
+const localDate=(iso:string)=>{
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(iso))
+ const read=(type:string)=>parts.find(p=>p.type===type)?.value||''
+ return read('year')+'-'+read('month')+'-'+read('day')
+}
 const defaultTime='20:00'
 
 const markets = ['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks','Other']
@@ -85,7 +89,6 @@ function App(){
  const save=()=>{if(!draft.player.trim()||!draft.market.trim()||!draft.date||!Number.isFinite(draft.line)||draft.line<0){setNotice('Add a player, date and valid line.');return}const record={...draft,autoGraded:false,id:editing?.id||crypto.randomUUID(),createdAt:editing?.createdAt||new Date().toISOString()};setPicks(old=>editing?old.map(p=>p.id===record.id?record:p):[record,...old]);setEditing(null);setNotice('Entry saved')}
  const start=(p?:Pick)=>{setEditing(p||initialForm());setDraft(p?{...p}:initialForm())}
  const update=(key:keyof Pick,value:unknown)=>setDraft(p=>({...p,[key]:value}))
- const setActual=(p:Pick,value:string)=>{const actual=value===''?null:Number(value);const status:Status=actual===null?'pending':actual===p.line?'push':p.side==='More'?(actual>p.line?'win':'loss'):(actual<p.line?'win':'loss');setPicks(old=>old.map(row=>row.id===p.id?{...row,actual,status,autoGraded:false,resultSource:undefined}:row))}
  const closeNotice=()=>setNotice('')
  return <div className="shell">
   <aside className="sidebar">
@@ -108,7 +111,7 @@ function App(){
       </div>
       <div className="feed-notice">NBA SCORE FEED: {feedState==='offline'?'UNAVAILABLE — existing results preserved':feed.updatedAt?'UPDATED '+new Date(feed.updatedAt).toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})+' ET':'WAITING FOR FIRST SCHEDULED REFRESH'} · Unmatched picks stay pending.</div>
       <div className="section-title"><div><span className="section-index">01</span><h2>Current journal</h2></div><button className="ghost" onClick={()=>setScreen('journal')}>View all entries <ArrowUpRight size={15}/></button></div>
-      <Journal rows={filtered.slice(0,8)} onEdit={start} onActual={setActual}/>
+      <Journal rows={filtered.slice(0,8)} onEdit={start}/>
       <div className="split-panels">
        <div className="info-panel"><div className="panel-title"><BarChart3 size={16}/> PERFORMANCE RULES</div><h3>Review the reasoning.</h3><p>Each pick has a collapsible rationale explaining the analysis behind it. Original predictions stay separate from watchlist ideas. Completed NBA games are checked automatically when the score feed refreshes.</p><div className="rule"><Check size={15}/> Final recommendations and watchlists tracked separately</div><div className="rule"><Check size={15}/> Automatic box-score results and data backups</div></div>
        <div className="info-panel dark-panel"><div className="panel-title"><Filter size={16}/> RESULTS COVERAGE</div><div className="coverage"><strong>{picks.filter(p=>p.status==='watchlist').length}</strong><span>Unverified watchlist targets</span></div><div className="coverage"><strong>{picks.filter(p=>p.status==='pending').length}</strong><span>Waiting for completed game</span></div><div className="coverage"><strong>{picks.filter(p=>validResult(p.status)).length}</strong><span>Final results</span></div></div>
@@ -116,7 +119,7 @@ function App(){
     </>}
     {screen==='journal'&&<>
       <div className="toolbar"><label className="search"><Search size={16}/><input placeholder="Search player, opponent or market" value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="select-wrap"><Filter size={15}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All statuses</option>{(['watchlist','pending','win','loss','push','void'] as Status[]).map(s=><option value={s} key={s}>{s}</option>)}</select><ChevronDown size={14}/></div><span className="rowcount">{filtered.length} ENTRIES</span></div>
-      <Journal rows={filtered} onEdit={start} onActual={setActual}/>
+      <Journal rows={filtered} onEdit={start}/>
       <p className="footnote">Final NBA box scores are matched automatically by game date, player and opponent. If a game or player cannot be matched safely, the entry remains pending. You can still correct exceptions manually.</p>
     </>}
     {screen==='analytics'&&<>
@@ -146,7 +149,7 @@ function App(){
   </div><div className="modal-foot">{editing.id&&<button className="delete" onClick={()=>{if(window.confirm('Delete this entry permanently?')){setPicks(old=>old.filter(p=>p.id!==editing.id));setEditing(null)}}}><Trash2 size={15}/> Delete</button>}<div className="grow"/><button className="secondary" onClick={()=>setEditing(null)}>Cancel</button><button className="primary" onClick={save}><Check size={16}/> Save entry</button></div></div></div>}
  </div>
 }
-function Journal({rows,onEdit,onActual}:{rows:Pick[];onEdit:(p:Pick)=>void;onActual:(p:Pick,s:string)=>void}){
+function Journal({rows,onEdit}:{rows:Pick[];onEdit:(p:Pick)=>void}){
  return <div className="table-frame"><div className="table-scroll"><table><thead><tr><th>DATE / TIME / PLAYER</th><th>MARKET</th><th>SELECTION</th><th>SOURCE</th><th>PROJECTION</th><th>ACTUAL</th><th>RESULT</th><th>TYPE</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={9} className="empty">No entries match. Use Add prop to start tracking.</td></tr>:rows.map(p=><tr key={p.id}><td><div className="player">{p.player}</div><div className="muted small">{p.date} · {p.gameTime||'Time unverified'} ET · vs {p.opponent||'—'}</div></td><td>{p.market}</td><td><span className={'pick-side '+(p.side==='More'?'over':'under')}>{p.side==='More'?<ArrowUpRight size={13}/>:<ArrowDownRight size={13}/>} {p.side} {p.line}</span></td><td className="muted">{p.platform}</td><td className="mono">{p.projection??'—'}</td><td className="mono">{p.actual??'—'}</td><td><Symbol result={p.status}/>{p.autoGraded&&<div className="auto-caption">AUTO · ESPN</div>}</td><td><div className="flags">{p.recommended?<span>MODEL</span>:<span className="mutedflag">WATCH</span>}</div></td><td><button className="edit-btn" onClick={()=>onEdit(p)}>EDIT</button></td></tr>).flatMap(p=>p)}</tbody></table></div><div className="rationale-list">{rows.map(p=><details key={'why-'+p.id} className="rationale-row"><summary><span>{p.player} · {p.side} {p.line} {p.market}</span><span>WHY THIS PICK <ChevronDown size={13}/></span></summary><div>{p.rationale||p.notes||'No detailed reasoning recorded. Add verified analysis under Edit → Why I like this pick.'}</div></details>)}</div></div>
 }
 export default App
