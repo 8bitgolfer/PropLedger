@@ -206,7 +206,7 @@ function App(){
    <label>Game date (ET)<input type="date" value={draft.date} onChange={e=>update('date',e.target.value)}/></label>
    <label>Game from NBA schedule ({draft.date})<select value={draft.gameId||''} disabled={!!draft.lockedAt} onChange={e=>{
     const game=schedule?.games.find(g=>g.id===e.target.value)
-    setDraft(old=>({...old,gameId:game?.id||'',playerId:'',teamId:'',gameTime:game?formatET(game.tipoff):'',tipoffISO:game?.tipoff||'',opponent:'',playerId:'',teamId:''}))
+    setDraft(old=>({...old,gameId:game?.id||'',gameTime:game?formatET(game.tipoff):'',tipoffISO:game?.tipoff||'',opponent:'',playerId:'',teamId:''}))
    }}><option value="">{scheduleState==='loading'?'Loading schedule…':scheduleState==='unavailable'?'Schedule unavailable — check feed':'Select scheduled NBA game'}</option>{schedule?.games.map(g=><option key={g.id} value={g.id}>{g.teams.map(t=>t.abbreviation).join(' vs ')} · {formatET(g.tipoff)} ET</option>)}</select></label>
    <label>Tipoff time (ET; from schedule)<input type="time" value={draft.gameTime||''} readOnly placeholder="Select a game"/></label>
    <label>Opponent<select value={draft.opponent} disabled={!!draft.lockedAt||!draft.gameId} onChange={e=>setDraft(old=>({...old,opponent:e.target.value,playerId:'',teamId:''}))}><option value="">Select opponent</option>{schedule?.games.find(g=>g.id===draft.gameId)?.teams.map(t=><option key={t.id} value={t.abbreviation}>{t.abbreviation}</option>)}</select></label>
