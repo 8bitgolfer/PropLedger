@@ -212,6 +212,7 @@ function App(){
  const resultTone=(wins:number,count:number)=>count===0?'muted':wins/count>=.6?'good':wins/count>=.4?'mid':'bad'
  const datePicks=validPicks.filter(p=>p.date===selectedDay)
  const displayList=screen==='picks'?datePicks:daily
+ const activeMonthDays=[...new Set(completePicks.map(p=>p.date))].sort()
  const historyPts=activeMonthDays.slice(-12).map((date,i)=>{const upto=completePicks.filter(p=>p.date<=date);return {date,rate:upto.length?100*upto.filter(p=>p.status==='win').length/upto.length:0,index:i}})
  const chartPoints=historyPts.map((p,i)=>String(35+i*(historyPts.length>1?550/(historyPts.length-1):0))+','+String(205-p.rate*1.75)).join(' ')
  return <div className="pl-shell">
