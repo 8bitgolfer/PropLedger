@@ -25,6 +25,17 @@ function histories(pick:PickForInsights,data:InsightFeed):Sample[]{
  }
  return out.sort((a,b)=>a.game.date.localeCompare(b.game.date))
 }
+export function historicalBaseline(pick:PickForInsights,data:InsightFeed|null):number|null{
+ if(!data)return null
+ const past=histories(pick,data)
+ // A descriptive estimate, NOT a vetted game-day research-model forecast.
+ // Require five independently recorded previous games before calculating it.
+ if(past.length<5)return null
+ const last5=past.slice(-5).reduce((a,r)=>a+r.value,0)/5
+ const ten=past.slice(-10)
+ const last10=ten.reduce((a,r)=>a+r.value,0)/ten.length
+ return Math.round((0.6*last5+0.4*last10)*10)/10
+}
 type Defense={score:number;sample:number;allowed:number;label:string}
 function defense(pick:PickForInsights,data:InsightFeed):Defense|null{
  if(!keys[pick.market])return null
@@ -56,6 +67,7 @@ export default function PickInsights({pick,data,state}:{pick:PickForInsights;dat
  const history=useMemo(()=>data?histories(pick,data):[],[pick,data])
  const rows=view==='l5'?history.slice(-5):view==='l10'?history.slice(-10):view==='h2h'?history.filter(r=>norm(r.opp)===norm(pick.opponent)):history.filter(r=>r.game.date>=season(pick.date))
  const rating=useMemo(()=>data?defense(pick,data):null,[pick,data])
+ const baseline=useMemo(()=>historicalBaseline(pick,data),[pick,data])
  const hits=rows.filter(r=>pick.side==='More'?r.value>pick.line:r.value<pick.line).length
  const avg=rows.length?rows.reduce((a,r)=>a+r.value,0)/rows.length:0
  const max=Math.max(1,pick.line,...rows.map(r=>r.value))*1.17
@@ -66,8 +78,8 @@ export default function PickInsights({pick,data,state}:{pick:PickForInsights;dat
   <div className="insight-tabs" role="group" aria-label="Historical sample">
    {([['l5','LAST 5'],['l10','LAST 10'],['h2h','H2H'],['season','2026–27']] as [View,string][]).map(([key,label])=><button type="button" key={key} aria-pressed={view===key} className={view===key?'active':''} onClick={()=>setView(key)}>{label}</button>)}
   </div>
-  {state!=='ready'||!data?<div className="insight-empty"><Activity size={16}/>{state==='loading'?'Loading historical results…':'Historical data is not published yet. Run the NBA archive workflow first.'}</div>:rows.length===0?<div className="insight-empty"><Activity size={16}/>No archived games in this view before {pick.date}. Historical results are never invented.</div>:<>
-   <div className="insight-stats"><div><span>AVERAGE</span><strong>{avg.toFixed(1)}</strong></div><div><span>LINE COVERAGE</span><strong>{hits}/{rows.length} <small>{Math.round(100*hits/rows.length)}%</small></strong></div><div><span>SAMPLE</span><strong>{rows.length} <small>GAMES</small></strong></div><div><span>PROJECTION</span><strong>{pick.projection===null?'—':nice(pick.projection)}</strong></div></div>
+  {state!=='ready'||!data?<div className="insight-empty"><Activity size={16}/>{state==='loading'?'Loading historical results…':'Historical data is not published yet. Run the NBA archive workflow first.'}</div>:rows.length===0?<div className="insight-empty"><Activity size={16}/>No prior {view==='h2h'?'head-to-head':view==='season'?'season':'player'} games found in the published archive before {pick.date}. Earlier seasons may not be imported yet; no results are invented.</div>:<>
+   <div className="insight-stats"><div><span>AVERAGE</span><strong>{avg.toFixed(1)}</strong></div><div><span>LINE COVERAGE</span><strong>{hits}/{rows.length} <small>{Math.round(100*hits/rows.length)}%</small></strong></div><div><span>SAMPLE</span><strong>{rows.length} <small>GAMES</small></strong></div><div><span>{pick.projection!==null?'SAVED MODEL PROJECTION':'AUTO HISTORICAL BASELINE'}</span><strong>{pick.projection!==null?nice(pick.projection):baseline===null?'—':nice(baseline)}</strong></div></div>
    <div className="insight-plot-scroller"><div className="insight-plot" style={{minWidth:Math.max(490,rows.length*48)+'px'}}>
     <div className="insight-rule" style={{bottom:100*pick.line/max+'%'}}><span>{nice(pick.line)} LINE</span></div>
     {rows.map((r,i)=>{
@@ -87,6 +99,6 @@ export default function PickInsights({pick,data,state}:{pick:PickForInsights;dat
    </>}
   </div>
   <div className="insight-reason"><span><TrendingUp size={14}/> PICK RESEARCH</span><p>{pick.rationale||pick.notes||'No written pick analysis has been saved.'}</p></div>
-  <div className="insight-footnote">Historical data is limited to archived final games played before this pick. Incomplete archives produce smaller samples; past hit rates alone do not predict future outcomes.</div>
+  <div className="insight-footnote">An AUTO HISTORICAL BASELINE uses 60% of the previous 5-game mean and 40% of the previous 10-game mean (requires at least 5 archived games). It is NOT a pregame model prediction, injury-adjusted forecast or betting recommendation. Historical data is limited to archived final games played before this pick. Incomplete archives produce smaller samples; past hit rates alone do not predict future outcomes.</div>
  </div>
 }
