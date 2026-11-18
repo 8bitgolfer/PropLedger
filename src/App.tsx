@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import CloudBackup from './CloudBackup'
 import { NOV17_WATCHLIST } from './nov17Watchlist'
+import { NOV17_FINAL_RESULTS } from './nov17Verified'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
 import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, Target, Trash2, X } from 'lucide-react'
 
@@ -47,34 +48,44 @@ const seed: Pick[] = [
  {id:'seed-draymond',date:'2026-11-16',gameTime:'20:00',rationale:"This under is worth investigating if his offensive involvement and scoring attempts remain limited. His role can change with major Warriors absences, so a low line is not automatically good value. An independent distribution was not calculated.",player:'Draymond Green',opponent:'NOP',market:'Points',side:'Less',line:6.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Morning third-party market snapshot. Not a verified final recommendation.',createdAt:'2026-11-16T19:40:00-05:00'},
  {id:'seed-podz',date:'2026-11-16',gameTime:'20:00',rationale:"PRA combines scoring, rebounding and assists; shifting Golden State rotations can change all three. The under requires careful projected-minute and usage analysis, particularly with missing teammates. This was only a public-market watchlist threshold.",player:'Brandin Podziemski',opponent:'NOP',market:'PRA',side:'Less',line:28.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Unverified research target; check availability and lineup.',createdAt:'2026-11-16T19:40:00-05:00'}
 ]
-function load(): Pick[] {
- try {
+function reconcileNov17Results(rows:Pick[]):Pick[]{
+ return rows.map(p=>{
+  // Preserve previously recorded final results and all manual corrections.
+  if(p.actual!==null||p.status==='win'||p.status==='loss'||p.status==='push'||p.status==='void')return p
+  const verified=NOV17_FINAL_RESULTS.find(r=>
+   p.date===r.date&&normalize(p.player)===normalize(r.player)&&
+   p.market===r.market&&p.side===r.side&&p.line===r.line
+  )
+  if(!verified)return p
+  const status:Status=verified.actual===p.line?'push':
+   p.side==='More'?(verified.actual>p.line?'win':'loss'):(verified.actual<p.line?'win':'loss')
+  return {...p,status,actual:verified.actual,autoGraded:true,resultSource:verified.source}
+ })
+}
+function load():Pick[]{
+ try{
   const raw=localStorage.getItem(KEY)
   const data:unknown=raw?JSON.parse(raw):seed
   const current=Array.isArray(data)?data as Pick[]:seed
-  // One-time, non-destructive import into existing browsers. A migration
-  // marker also allows users to delete these picks without them reappearing.
-  if(localStorage.getItem(NOV17_IMPORT_KEY)==='done')return current
-  const existingIds=new Set(current.map(p=>p.id))
-  const existingLines=new Set(current.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
-  const additions=NOV17_WATCHLIST.filter(p=>
-   !existingIds.has(p.id)&&!existingLines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
-  ).map(p=>({...p} as Pick))
-  const merged=[...additions,...current]
-  localStorage.setItem(KEY,JSON.stringify(merged))
-  localStorage.setItem(NOV17_IMPORT_KEY,'done')
-  return merged
+  let merged=current
+  // Merge once per browser, without repeating deleted records on refresh.
+  if(localStorage.getItem(NOV17_IMPORT_KEY)!=='done'){
+   const ids=new Set(current.map(p=>p.id))
+   const lines=new Set(current.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+   const additions=NOV17_WATCHLIST.filter(p=>
+    !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+   ).map(p=>({...p} as Pick))
+   merged=[...additions,...current]
+   localStorage.setItem(NOV17_IMPORT_KEY,'done')
+  }
+  // Final box scores are immutable historic facts; merge only into ungraded
+  // entries. This is a one-off release reconciliation, not an ongoing poll.
+  const graded=reconcileNov17Results(merged)
+  if(graded!==current||graded.some((p,i)=>p!==merged[i]))localStorage.setItem(KEY,JSON.stringify(graded))
+  return graded
  }catch{return seed}
 }
-// Match the two known promotional picks as well as newly imported metadata.
-// This makes the badge work for browser records saved before the promo field
-// existed, without overwriting or re-importing any saved picks.
-const isTacoPick=(p:Pick):boolean=>p.promo==='taco'||(
- p.date==='2026-11-17'&&p.side==='More'&&(
-  (normalize(p.player)==='scottiebarnes'&&p.market==='Points'&&p.line===15.5)||
-  (normalize(p.player)==='lukadoncic'&&p.market==='PRA'&&p.line===43.5)
- ))
-function TacoBadge(){return <span className="pl-taco-badge" title="PrizePicks Taco discounted line · November 17 Taco pair" aria-label="Taco pair promotional line">🌮 <span>TACO PAIR</span></span>}
+
 const nowDate=()=>localDate(new Date().toISOString())
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function App(){
