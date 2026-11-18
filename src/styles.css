@@ -234,3 +234,9 @@ button{cursor:pointer}
 .pl-details-player-name{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
 .pl-details-player-name .pl-taco-badge{font-size:11px;padding:5px 10px}
 @media(max-width:720px){.pl-player-with-promo{gap:4px}.pl-taco-badge{font-size:9px;padding:3px 6px}.pl-details-player-name .pl-taco-badge{font-size:10px}}
+
+/* Mobile-safe result refresh control for incomplete historical browser journals. */
+.pl-results-sync{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:0 4px}
+.pl-results-sync .pl-add-btn{min-height:39px;flex-shrink:0}
+.pl-results-sync>span{color:#98a8b0;font-size:11px;line-height:1.35;text-align:right}
+@media(max-width:500px){.pl-results-sync{flex-wrap:wrap}.pl-results-sync>span{text-align:left}}
