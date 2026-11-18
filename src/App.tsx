@@ -6,7 +6,7 @@ import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Do
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
 type Side = 'More' | 'Less'
-type Pick = { id: string; date: string; gameTime?: string; tipoffISO?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
+type Pick = { id: string; promo?: 'taco' | null; date: string; gameTime?: string; tipoffISO?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
 const KEY = 'propledger-v1'
 const NOV17_IMPORT_KEY = 'propledger-nov17-discussion-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
@@ -66,6 +66,15 @@ function load(): Pick[] {
   return merged
  }catch{return seed}
 }
+// Match the two known promotional picks as well as newly imported metadata.
+// This makes the badge work for browser records saved before the promo field
+// existed, without overwriting or re-importing any saved picks.
+const isTacoPick=(p:Pick):boolean=>p.promo==='taco'||(
+ p.date==='2026-11-17'&&p.side==='More'&&(
+  (normalize(p.player)==='scottiebarnes'&&p.market==='Points'&&p.line===15.5)||
+  (normalize(p.player)==='lukadoncic'&&p.market==='PRA'&&p.line===43.5)
+ ))
+function TacoBadge(){return <span className="pl-taco-badge" title="PrizePicks Taco discounted line · November 17 Taco pair" aria-label="Taco pair promotional line">🌮 <span>TACO PAIR</span></span>}
 const nowDate=()=>localDate(new Date().toISOString())
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function App(){
@@ -282,7 +291,7 @@ function App(){
       <h2 className="pl-panel-heading">Completed Picks — {dayLabel(selectedDay)}</h2>
       <div className="pl-feature-strip pl-feature-three"><div><span>Tracked Results</span><strong>{dayGraded.length}</strong></div><div><span>Hit Rate</span><strong className="pl-green">{hit(dayWins,dayGraded.length)}</strong></div><div><span>Record</span><strong>{dayGraded.length?dayWins+' – '+dayLosses:'—'}</strong></div></div>
       <div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Player</th><th>Market</th><th>Pick</th><th>Actual</th><th>Result</th></tr></thead><tbody>
-       {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No tracked picks have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><strong>{p.player}</strong><small>vs {p.opponent}{!p.lockedAt?" · Watchlist":""}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
+       {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No tracked picks have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><div className="pl-player-with-promo"><strong>{p.player}</strong>{isTacoPick(p)&&<TacoBadge/>}</div><small>vs {p.opponent}{!p.lockedAt?" · Watchlist":""}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
       </tbody></table></div>
       {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">Unverified watchlist picks are included in these daily tracked results but excluded from official locked-model accuracy.</div>}
      </section>
@@ -300,7 +309,7 @@ function App(){
      <div className="pl-table-wrap"><table className="pl-table pl-pick-table"><thead><tr><th>Player</th><th>Matchup</th><th>Market</th><th>Pick</th><th>Projection</th></tr></thead><tbody>
       {displayList.length===0?<tr><td colSpan={5} className="pl-empty-row">No picks on this date. Add a pick to start tracking.</td></tr>:displayList.map(p=>{
        const projection=p.projection??historicalBaseline(p,insightFeed)
-       return <tr className={'pl-pick-row '+(visiblePick?.id===p.id?'is-current':'')} key={p.id} onClick={()=>setSelectedPick(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelectedPick(p.id)}}} tabIndex={0} aria-selected={visiblePick?.id===p.id}><td className="pl-player-cell"><strong>{p.player}</strong></td><td>vs {p.opponent}<small>{displayTime(p.gameTime)} ET</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td className={projectionTone(p,projection)+" pl-projection-cell"}>{projection===null?'—':projection.toFixed(1)}{p.projection===null&&projection!==null?<small>AUTO BASELINE</small>:null}</td></tr>
+       return <tr className={'pl-pick-row '+(visiblePick?.id===p.id?'is-current':'')} key={p.id} onClick={()=>setSelectedPick(p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelectedPick(p.id)}}} tabIndex={0} aria-selected={visiblePick?.id===p.id}><td className="pl-player-cell"><div className="pl-player-with-promo"><strong>{p.player}</strong>{isTacoPick(p)&&<TacoBadge/>}</div></td><td>vs {p.opponent}<small>{displayTime(p.gameTime)} ET</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td className={projectionTone(p,projection)+" pl-projection-cell"}>{projection===null?'—':projection.toFixed(1)}{p.projection===null&&projection!==null?<small>AUTO BASELINE</small>:null}</td></tr>
       })}
      </tbody></table></div>
      <p className="pl-panel-note">Select a row to inspect the saved prediction and its research. Watchlist entries are not counted as locked model picks.</p>
@@ -308,7 +317,7 @@ function App(){
     <section className="pl-panel pl-pick-details">
      <h2 className="pl-panel-heading">Pick Details</h2>
      {!visiblePick?<div className="pl-empty-details"><Target size={45}/>Select a pick to view research, trends and matchup statistics.</div>:<>
-      <div className="pl-details-head"><div><h3>{visiblePick.player}</h3><p>{visiblePick.market} · vs {visiblePick.opponent} · {dayLabel(visiblePick.date)}</p></div><div className="pl-details-actions">{!visiblePick.lockedAt&&visiblePick.status!=='win'&&visiblePick.status!=='loss'&&<button className="pl-add-btn" onClick={()=>lock(visiblePick)}>Lock Pick</button>}<button className="pl-square pl-edit" onClick={()=>start(visiblePick)}>{visiblePick.lockedAt?'Notes':'Edit'}</button></div></div>
+      <div className="pl-details-head"><div><h3 className="pl-details-player-name">{visiblePick.player}{isTacoPick(visiblePick)&&<TacoBadge/>}</h3><p>{visiblePick.market} · vs {visiblePick.opponent} · {dayLabel(visiblePick.date)}</p></div><div className="pl-details-actions">{!visiblePick.lockedAt&&visiblePick.status!=='win'&&visiblePick.status!=='loss'&&<button className="pl-add-btn" onClick={()=>lock(visiblePick)}>Lock Pick</button>}<button className="pl-square pl-edit" onClick={()=>start(visiblePick)}>{visiblePick.lockedAt?'Notes':'Edit'}</button></div></div>
       <div className="pl-feature-strip pl-feature-four"><div><span>Line</span><strong>{visiblePick.line}</strong></div><div><span>Projection</span><strong className={projectionTone(visiblePick,visiblePick.projection??historicalBaseline(visiblePick,insightFeed))}>{(visiblePick.projection??historicalBaseline(visiblePick,insightFeed))?.toFixed(1)??'—'}</strong></div><div><span>Edge</span><strong className="pl-green">{visiblePick.projection!==null?(visiblePick.side==='More'?visiblePick.projection-visiblePick.line:visiblePick.line-visiblePick.projection).toFixed(1):'—'}</strong></div><div><span>Result</span><strong className={visiblePick.status==='win'?'pl-green':visiblePick.status==='loss'?'pl-red':''}>{visiblePick.status==='win'?'WIN':visiblePick.status==='loss'?'LOSS':visiblePick.lockedAt?'LOCKED':'DRAFT'}</strong></div></div>
       <PickInsights key={visiblePick.id} pick={visiblePick} data={insightFeed} state={insightState}/>
       {visiblePick.correctionNotes&&<div className="pl-correction">Postgame notes: {visiblePick.correctionNotes}</div>}
