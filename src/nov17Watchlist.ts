@@ -3,6 +3,7 @@
 export const NOV17_WATCHLIST = [
   {
     "id": "watch-2026-11-17-scottie-taco",
+    "promo": "taco",
     "date": "2026-11-17",
     "gameTime": "19:30",
     "tipoffISO": "2026-11-18T00:30Z",
@@ -28,6 +29,7 @@ export const NOV17_WATCHLIST = [
   },
   {
     "id": "watch-2026-11-17-luka-taco",
+    "promo": "taco",
     "date": "2026-11-17",
     "gameTime": "23:00",
     "tipoffISO": "2026-11-18T04:00Z",
