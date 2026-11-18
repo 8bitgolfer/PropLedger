@@ -226,3 +226,11 @@ button{cursor:pointer}
 /* Projection direction colors: favorable Under = red, favorable Over = lime. */
 .pl-under-projection{color:#ff626e!important}
 .pl-neutral{color:#c3d0d7!important}
+
+/* Discounted PrizePicks Taco pair, November 17 2026. Compact across layouts. */
+.pl-player-with-promo{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-width:0}
+.pl-player-with-promo strong{display:inline;min-width:0}
+.pl-taco-badge{display:inline-flex;align-items:center;gap:4px;width:max-content;max-width:100%;border:1px solid #edae38;background:linear-gradient(180deg,#57310f,#3b250e);color:#ffe39f;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:800;letter-spacing:.3px;line-height:1.25;white-space:nowrap;vertical-align:middle;box-shadow:inset 0 1px 0 #fff2}
+.pl-details-player-name{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.pl-details-player-name .pl-taco-badge{font-size:11px;padding:5px 10px}
+@media(max-width:720px){.pl-player-with-promo{gap:4px}.pl-taco-badge{font-size:9px;padding:3px 6px}.pl-details-player-name .pl-taco-badge{font-size:10px}}
