@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import CloudBackup from './CloudBackup'
+import { NOV17_WATCHLIST } from './nov17Watchlist'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
 import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, Target, Trash2, X } from 'lucide-react'
 
@@ -7,6 +8,7 @@ type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
 type Side = 'More' | 'Less'
 type Pick = { id: string; date: string; gameTime?: string; tipoffISO?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
 const KEY = 'propledger-v1'
+const NOV17_IMPORT_KEY = 'propledger-nov17-discussion-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
 type ScheduleGame = { id: string; date: string; tipoff: string; teams: Team[]; completed: boolean }
@@ -15,13 +17,13 @@ type RosterPlayer = { id: string; name: string; teamId: string }
 type FinalGame = ScheduleGame & { players: NBAPlayer[] }
 type ResultsData = { date: string; games: FinalGame[] }
 const formatET=(iso:string)=>new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso))
-const validMarkets=['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks']
+const validMarkets=['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks','Steals + Blocks']
 const normalize=(s:string)=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'')
 const teamAliases:Record<string,string>={gs:'gsw',gsw:'gsw',no:'nop',nop:'nop',ny:'nyk',nyk:'nyk',sa:'sas',sas:'sas',wsh:'was',was:'was',ut:'uta',uta:'uta',pho:'phx',phx:'phx',brk:'bkn',bkn:'bkn'}
 const teamKey=(s:string)=>teamAliases[normalize(s)]||normalize(s)
 
 const resultFor=(market:string,p:NBAPlayer):number|null=>{
- const values:Record<string,number|null>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra,'Steals':p.steals,'Blocks':p.blocks}
+ const values:Record<string,number|null>={'Points':p.points,'Rebounds':p.rebounds,'Assists':p.assists,'3PT Made':p.threes,'PRA':p.pra,'Points + Assists':p.pa,'Points + Rebounds':p.pr,'Rebounds + Assists':p.ra,'Steals':p.steals,'Blocks':p.blocks,'Steals + Blocks':p.steals!==null&&p.blocks!==null?p.steals+p.blocks:null}
  return Number.isFinite(values[market])?values[market]:null
 }
 const localDate=(iso:string)=>{
@@ -37,7 +39,7 @@ const displayTime=(value?:string)=>{
  return (h%12||12)+':'+String(m).padStart(2,'0')+(h>=12?' PM':' AM')
 }
 
-const markets = ['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks','Other']
+const markets = ['Points','Rebounds','Assists','3PT Made','PRA','Points + Assists','Points + Rebounds','Rebounds + Assists','Steals','Blocks','Steals + Blocks','Other']
 const seed: Pick[] = [
  {id:'seed-zion',date:'2026-11-16',gameTime:'20:00',rationale:"Pelicans' missing offensive contributors could increase Zion's scoring opportunities. His rim pressure and free throws offer several paths to points. Risks: extra help defense, foul trouble and a lower free-throw rate. This is an unverified watchlist line, not a confirmed value bet.",player:'Zion Williamson',opponent:'GSW',market:'Points',side:'More',line:20.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Reported public research target. Line and availability not verified on PrizePicks or Hard Rock.',createdAt:'2026-11-16T19:40:00-05:00'},
  {id:'seed-fears',date:'2026-11-16',gameTime:'20:00',rationale:"With a key ball-handler unavailable, Fears may have additional creation responsibility. Assists depend heavily on potential assists and teammate conversion. Risks: shared playmaking, defensive pressure and missed teammate shots. No independent probability was established.",player:'Jeremiah Fears',opponent:'GSW',market:'Assists',side:'More',line:5.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Reported public target, not a confirmed executable bet.',createdAt:'2026-11-16T19:40:00-05:00'},
@@ -45,7 +47,25 @@ const seed: Pick[] = [
  {id:'seed-draymond',date:'2026-11-16',gameTime:'20:00',rationale:"This under is worth investigating if his offensive involvement and scoring attempts remain limited. His role can change with major Warriors absences, so a low line is not automatically good value. An independent distribution was not calculated.",player:'Draymond Green',opponent:'NOP',market:'Points',side:'Less',line:6.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Morning third-party market snapshot. Not a verified final recommendation.',createdAt:'2026-11-16T19:40:00-05:00'},
  {id:'seed-podz',date:'2026-11-16',gameTime:'20:00',rationale:"PRA combines scoring, rebounding and assists; shifting Golden State rotations can change all three. The under requires careful projected-minute and usage analysis, particularly with missing teammates. This was only a public-market watchlist threshold.",player:'Brandin Podziemski',opponent:'NOP',market:'PRA',side:'Less',line:28.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Unverified research target; check availability and lineup.',createdAt:'2026-11-16T19:40:00-05:00'}
 ]
-function load(): Pick[] { try { const raw=localStorage.getItem(KEY); if(!raw)return seed; const data:unknown=JSON.parse(raw); return Array.isArray(data)?data as Pick[]:seed } catch { return seed } }
+function load(): Pick[] {
+ try {
+  const raw=localStorage.getItem(KEY)
+  const data:unknown=raw?JSON.parse(raw):seed
+  const current=Array.isArray(data)?data as Pick[]:seed
+  // One-time, non-destructive import into existing browsers. A migration
+  // marker also allows users to delete these picks without them reappearing.
+  if(localStorage.getItem(NOV17_IMPORT_KEY)==='done')return current
+  const existingIds=new Set(current.map(p=>p.id))
+  const existingLines=new Set(current.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+  const additions=NOV17_WATCHLIST.filter(p=>
+   !existingIds.has(p.id)&&!existingLines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+  ).map(p=>({...p} as Pick))
+  const merged=[...additions,...current]
+  localStorage.setItem(KEY,JSON.stringify(merged))
+  localStorage.setItem(NOV17_IMPORT_KEY,'done')
+  return merged
+ }catch{return seed}
+}
 const nowDate=()=>localDate(new Date().toISOString())
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function App(){
