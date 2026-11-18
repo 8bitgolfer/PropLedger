@@ -3,13 +3,14 @@ import CloudBackup from './CloudBackup'
 import { NOV17_WATCHLIST } from './nov17Watchlist'
 import { NOV17_FINAL_RESULTS } from './nov17Verified'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
-import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, Target, Trash2, X } from 'lucide-react'
+import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, RefreshCw, Target, Trash2, X } from 'lucide-react'
 
 type Status = 'watchlist' | 'pending' | 'win' | 'loss' | 'push' | 'void'
 type Side = 'More' | 'Less'
 type Pick = { id: string; promo?: 'taco' | null; date: string; gameTime?: string; tipoffISO?: string; gameId?: string; playerId?: string; teamId?: string; rationale?: string; lockedAt?: string; correctionNotes?: string; autoGraded?: boolean; resultSource?: string; player: string; opponent: string; market: string; side: Side; line: number; platform: string; odds: number | null; projection: number | null; probability: number | null; status: Status; actual: number | null; recommended: boolean; placed?: boolean; stake?: number; notes: string; createdAt: string }
 const KEY = 'propledger-v1'
 const NOV17_IMPORT_KEY = 'propledger-nov17-discussion-v1'
+const NOV17_REPAIR_KEY = 'propledger-nov17-repair-v2'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
 type ScheduleGame = { id: string; date: string; tipoff: string; teams: Team[]; completed: boolean }
@@ -49,8 +50,9 @@ const seed: Pick[] = [
  {id:'seed-podz',date:'2026-11-16',gameTime:'20:00',rationale:"PRA combines scoring, rebounding and assists; shifting Golden State rotations can change all three. The under requires careful projected-minute and usage analysis, particularly with missing teammates. This was only a public-market watchlist threshold.",player:'Brandin Podziemski',opponent:'NOP',market:'PRA',side:'Less',line:28.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Unverified research target; check availability and lineup.',createdAt:'2026-11-16T19:40:00-05:00'}
 ]
 function reconcileNov17Results(rows:Pick[]):Pick[]{
- return rows.map(p=>{
-  // Preserve previously recorded final results and all manual corrections.
+ let changed=false
+ const graded=rows.map(p=>{
+  // Existing final grades are immutable. Never overwrite manual corrections.
   if(p.actual!==null||p.status==='win'||p.status==='loss'||p.status==='push'||p.status==='void')return p
   const verified=NOV17_FINAL_RESULTS.find(r=>
    p.date===r.date&&normalize(p.player)===normalize(r.player)&&
@@ -59,8 +61,18 @@ function reconcileNov17Results(rows:Pick[]):Pick[]{
   if(!verified)return p
   const status:Status=verified.actual===p.line?'push':
    p.side==='More'?(verified.actual>p.line?'win':'loss'):(verified.actual<p.line?'win':'loss')
+  changed=true
   return {...p,status,actual:verified.actual,autoGraded:true,resultSource:verified.source}
  })
+ return changed?graded:rows
+}
+function mergeNov17Watchlist(rows:Pick[]):Pick[]{
+ const ids=new Set(rows.map(p=>p.id))
+ const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+ const additions=NOV17_WATCHLIST.filter(p=>
+  !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+ ).map(p=>({...p} as Pick))
+ return additions.length?[...additions,...rows]:rows
 }
 function load():Pick[]{
  try{
@@ -68,24 +80,18 @@ function load():Pick[]{
   const data:unknown=raw?JSON.parse(raw):seed
   const current=Array.isArray(data)?data as Pick[]:seed
   let merged=current
-  // Merge once per browser, without repeating deleted records on refresh.
-  if(localStorage.getItem(NOV17_IMPORT_KEY)!=='done'){
-   const ids=new Set(current.map(p=>p.id))
-   const lines=new Set(current.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
-   const additions=NOV17_WATCHLIST.filter(p=>
-    !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
-   ).map(p=>({...p} as Pick))
-   merged=[...additions,...current]
+  // Recover incomplete early imports once, but respect all future deletions.
+  // This is a versioned, non-destructive one-time Nov 17 migration.
+  if(localStorage.getItem(NOV17_REPAIR_KEY)!=='done'){
+   merged=mergeNov17Watchlist(current)
    localStorage.setItem(NOV17_IMPORT_KEY,'done')
+   localStorage.setItem(NOV17_REPAIR_KEY,'done')
   }
-  // Final box scores are immutable historic facts; merge only into ungraded
-  // entries. This is a one-off release reconciliation, not an ongoing poll.
   const graded=reconcileNov17Results(merged)
-  if(graded!==current||graded.some((p,i)=>p!==merged[i]))localStorage.setItem(KEY,JSON.stringify(graded))
+  if(graded!==current)localStorage.setItem(KEY,JSON.stringify(graded))
   return graded
  }catch{return seed}
 }
-
 const nowDate=()=>localDate(new Date().toISOString())
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function App(){
@@ -103,6 +109,7 @@ function App(){
  const [scheduleState,setScheduleState]=useState<'loading'|'ready'|'unavailable'>('loading')
  const [feedState,setFeedState]=useState<'loading'|'ready'|'offline'>('loading')
  const [lastResultsUpdate,setLastResultsUpdate]=useState<string|null>(null)
+ const [refreshRequest,setRefreshRequest]=useState(0)
  const fileRef=useRef<HTMLInputElement>(null)
  useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(picks))},[picks])
  useEffect(()=>{
@@ -123,6 +130,9 @@ function App(){
  useEffect(()=>{
   let alive=true
   const fetchArchive=async()=>{
+   // Always repair known missing final grades, even if the remote archive is
+   // temporarily stale or a Safari tab was suspended during deployment.
+   setPicks(old=>reconcileNov17Results(old))
    const dates=[...new Set(picks.filter(p=>p.status==='pending'||p.status==='watchlist').map(p=>p.date))]
    if(!dates.length){if(alive)setFeedState('ready');return}
    let hadResponse=false
@@ -164,7 +174,7 @@ function App(){
   window.addEventListener('focus',onFocus)
   document.addEventListener('visibilitychange',onVisibility)
   return()=>{alive=false;window.clearInterval(interval);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisibility)}
- },[picks.map(p=>p.date+':'+p.status).join('|')])
+ },[picks.map(p=>p.date+':'+p.status).join('|'),refreshRequest])
  useEffect(()=>{
   let alive=true
   const load=async()=>{
@@ -276,6 +286,7 @@ function App(){
    {notice&&<div className="pl-notice" role="status">{notice}<button onClick={closeNotice} aria-label="Dismiss notice"><X size={16}/></button></div>}
    {screen==='results'&&<div className="pl-results-layout">
     <section className="pl-panel">
+     <div className="pl-results-sync"><button type="button" className="pl-add-btn" onClick={()=>{setPicks(old=>reconcileNov17Results(old));setRefreshRequest(n=>n+1);setNotice('Results refresh requested. Saved picks are preserved.')}}><RefreshCw size={15}/> Refresh Results</button><span>Verified finals sync to this calendar</span></div>
      <div className="pl-month-head">
       <button className="pl-square" disabled={selectedMonth==='2026-11'} onClick={()=>monthChange(-1)} aria-label="Previous month"><ChevronLeft size={22}/></button>
       <h2>{monthLabel}</h2>
