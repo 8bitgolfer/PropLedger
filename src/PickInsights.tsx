@@ -6,12 +6,12 @@ export type NBAStatGame={id:string;date:string;teams:{id:string;abbreviation:str
 export type InsightFeed={schemaVersion:number;games:NBAStatGame[]}
 export type PickForInsights={date:string;player:string;playerId?:string;teamId?:string;opponent:string;market:string;side:'More'|'Less';line:number;projection:number|null;rationale?:string;notes:string}
 type View='l5'|'l10'|'h2h'|'season'
-const keys:Record<string,keyof NBAStatPlayer>={'Points':'points','Rebounds':'rebounds','Assists':'assists','3PT Made':'threes','PRA':'pra','Points + Assists':'pa','Points + Rebounds':'pr','Rebounds + Assists':'ra','Steals':'steals','Blocks':'blocks'}
+const keys:Record<string,keyof NBAStatPlayer>={'Points':'points','Rebounds':'rebounds','Assists':'assists','3PT Made':'threes','PRA':'pra','Points + Assists':'pa','Points + Rebounds':'pr','Rebounds + Assists':'ra','Steals':'steals','Blocks':'blocks','Steals + Blocks':'steals'}
 const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')
 const teamAliases:Record<string,string>={gs:'gsw',gsw:'gsw',no:'nop',nop:'nop',ny:'nyk',nyk:'nyk',sa:'sas',sas:'sas',utah:'uta',ut:'uta',uta:'uta',wsh:'was',was:'was',phoe:'phx',pho:'phx',phx:'phx',brk:'bkn',bkn:'bkn',bknets:'bkn'}
 const teamKey=(abbr:string)=>teamAliases[norm(abbr)]||norm(abbr)
 function season(date:string){const y=Number(date.slice(0,4));return String(Number(date.slice(5,7))>=10?y:y-1)+'-10-01'}
-function stat(m:string,p:NBAStatPlayer):number|null{const k=keys[m];if(!k)return null;const v=p[k];return typeof v==='number'&&Number.isFinite(v)?v:null}
+function stat(m:string,p:NBAStatPlayer):number|null{if(m==='Steals + Blocks')return typeof p.steals==='number'&&typeof p.blocks==='number'?p.steals+p.blocks:null;const k=keys[m];if(!k)return null;const v=p[k];return typeof v==='number'&&Number.isFinite(v)?v:null}
 type Sample={game:NBAStatGame;value:number;opp:string}
 function histories(pick:PickForInsights,data:InsightFeed):Sample[]{
  const out:Sample[]=[]
