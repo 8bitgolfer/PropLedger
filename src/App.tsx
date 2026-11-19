@@ -92,6 +92,16 @@ function load():Pick[]{
   return graded
  }catch{return seed}
 }
+// PrizePicks promotional lines remain recognizable in old browser journals,
+// even when those records predate the explicit promo field.
+const isTacoPick=(p:Pick):boolean=>p.promo==='taco'||(
+ p.date==='2026-11-17'&&p.side==='More'&&(
+  (normalize(p.player)==='scottiebarnes'&&p.market==='Points'&&p.line===15.5)||
+  (normalize(p.player)==='lukadoncic'&&p.market==='PRA'&&p.line===43.5)
+ ))
+function TacoBadge(){
+ return <span className="pl-taco-badge" title="PrizePicks Taco discounted line · November 17 Taco pair" aria-label="Taco pair promotional line">🌮 <span>TACO PAIR</span></span>
+}
 const nowDate=()=>localDate(new Date().toISOString())
 function initialForm():Pick{return {id:'',date:nowDate(),gameTime:defaultTime,tipoffISO:'',gameId:'',playerId:'',teamId:'',rationale:'',correctionNotes:'',player:'',opponent:'',market:'Points',side:'More',line:0,platform:'PrizePicks',odds:null,projection:null,probability:null,status:'pending',actual:null,recommended:false,placed:false,stake:0,notes:'',createdAt:new Date().toISOString()}}
 function App(){
