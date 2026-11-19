@@ -316,7 +316,7 @@ function App(){
    {notice&&<div className="pl-notice" role="status">{notice}<button onClick={closeNotice} aria-label="Dismiss notice"><X size={16}/></button></div>}
    {screen==='results'&&<div className="pl-results-layout">
     <section className="pl-panel">
-     <div className="pl-results-sync"><button type="button" className="pl-add-btn" onClick={()=>{setPicks(old=>reconcileNov17Results(old));setRefreshRequest(n=>n+1);setNotice('Results refresh requested. Saved picks are preserved.')}}><RefreshCw size={15}/> Refresh Results</button><span>Verified finals sync to this calendar</span></div>
+     <div className="pl-results-sync"><button type="button" className="pl-add-btn" onClick={()=>{setPicks(old=>reconcileKnownResults(old));setRefreshRequest(n=>n+1);setNotice('Results refresh requested. Saved picks are preserved.')}}><RefreshCw size={15}/> Refresh Results</button><span>Verified finals sync to this calendar</span></div>
      <div className="pl-month-head">
       <button className="pl-square" disabled={selectedMonth==='2026-11'} onClick={()=>monthChange(-1)} aria-label="Previous month"><ChevronLeft size={22}/></button>
       <h2>{monthLabel}</h2>
