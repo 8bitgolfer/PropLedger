@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import CloudBackup from './CloudBackup'
 import { NOV17_WATCHLIST } from './nov17Watchlist'
 import { NOV17_FINAL_RESULTS } from './nov17Verified'
+import { NOV18_WATCHLIST } from './nov18Watchlist'
+import { NOV18_FINAL_RESULTS } from './nov18Verified'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
 import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, RefreshCw, Target, Trash2, X } from 'lucide-react'
 
@@ -11,6 +13,7 @@ type Pick = { id: string; promo?: 'taco' | null; date: string; gameTime?: string
 const KEY = 'propledger-v1'
 const NOV17_IMPORT_KEY = 'propledger-nov17-discussion-v1'
 const NOV17_REPAIR_KEY = 'propledger-nov17-repair-v2'
+const NOV18_IMPORT_KEY = 'propledger-nov18-discussion-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
 type ScheduleGame = { id: string; date: string; tipoff: string; teams: Team[]; completed: boolean }
@@ -49,17 +52,18 @@ const seed: Pick[] = [
  {id:'seed-draymond',date:'2026-11-16',gameTime:'20:00',rationale:"This under is worth investigating if his offensive involvement and scoring attempts remain limited. His role can change with major Warriors absences, so a low line is not automatically good value. An independent distribution was not calculated.",player:'Draymond Green',opponent:'NOP',market:'Points',side:'Less',line:6.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Morning third-party market snapshot. Not a verified final recommendation.',createdAt:'2026-11-16T19:40:00-05:00'},
  {id:'seed-podz',date:'2026-11-16',gameTime:'20:00',rationale:"PRA combines scoring, rebounding and assists; shifting Golden State rotations can change all three. The under requires careful projected-minute and usage analysis, particularly with missing teammates. This was only a public-market watchlist threshold.",player:'Brandin Podziemski',opponent:'NOP',market:'PRA',side:'Less',line:28.5,platform:'Research watchlist',odds:null,projection:null,probability:null,status:'watchlist',actual:null,recommended:false,placed:false,stake:0,notes:'Unverified research target; check availability and lineup.',createdAt:'2026-11-16T19:40:00-05:00'}
 ]
-function reconcileNov17Results(rows:Pick[]):Pick[]{
+function reconcileKnownResults(rows:Pick[]):Pick[]{
  let changed=false
  const graded=rows.map(p=>{
-  // Existing final grades are immutable. Never overwrite manual corrections.
+  // Preserve manual grades and historical finals. Never turn void into loss.
   if(p.actual!==null||p.status==='win'||p.status==='loss'||p.status==='push'||p.status==='void')return p
-  const verified=NOV17_FINAL_RESULTS.find(r=>
+  const verified=[...NOV17_FINAL_RESULTS,...NOV18_FINAL_RESULTS].find(r=>
    p.date===r.date&&normalize(p.player)===normalize(r.player)&&
    p.market===r.market&&p.side===r.side&&p.line===r.line
   )
   if(!verified)return p
-  const status:Status=verified.actual===p.line?'push':
+  const status:Status=('status' in verified&&verified.status==='void')?'void':
+   verified.actual===null?'void':verified.actual===p.line?'push':
    p.side==='More'?(verified.actual>p.line?'win':'loss'):(verified.actual<p.line?'win':'loss')
   changed=true
   return {...p,status,actual:verified.actual,autoGraded:true,resultSource:verified.source}
@@ -70,6 +74,14 @@ function mergeNov17Watchlist(rows:Pick[]):Pick[]{
  const ids=new Set(rows.map(p=>p.id))
  const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
  const additions=NOV17_WATCHLIST.filter(p=>
+  !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+ ).map(p=>({...p} as Pick))
+ return additions.length?[...additions,...rows]:rows
+}
+function mergeNov18Watchlist(rows:Pick[]):Pick[]{
+ const ids=new Set(rows.map(p=>p.id))
+ const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+ const additions=NOV18_WATCHLIST.filter(p=>
   !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
  ).map(p=>({...p} as Pick))
  return additions.length?[...additions,...rows]:rows
@@ -87,7 +99,12 @@ function load():Pick[]{
    localStorage.setItem(NOV17_IMPORT_KEY,'done')
    localStorage.setItem(NOV17_REPAIR_KEY,'done')
   }
-  const graded=reconcileNov17Results(merged)
+  // New-day watchlist import is one-time so deleted picks stay deleted.
+  if(localStorage.getItem(NOV18_IMPORT_KEY)!=='done'){
+   merged=mergeNov18Watchlist(merged)
+   localStorage.setItem(NOV18_IMPORT_KEY,'done')
+  }
+  const graded=reconcileKnownResults(merged)
   if(graded!==current)localStorage.setItem(KEY,JSON.stringify(graded))
   return graded
  }catch{return seed}
@@ -142,7 +159,7 @@ function App(){
   const fetchArchive=async()=>{
    // Always repair known missing final grades, even if the remote archive is
    // temporarily stale or a Safari tab was suspended during deployment.
-   setPicks(old=>reconcileNov17Results(old))
+   setPicks(old=>reconcileKnownResults(old))
    const dates=[...new Set(picks.filter(p=>p.status==='pending'||p.status==='watchlist').map(p=>p.date))]
    if(!dates.length){if(alive)setFeedState('ready');return}
    let hadResponse=false
@@ -243,12 +260,15 @@ function App(){
  const gradeByDay=(date:string)=>validPicks.filter(p=>p.date===date&&(p.status==='win'||p.status==='loss'))
  const daily=resultsByDay(selectedDay)
  const dayGraded=gradeByDay(selectedDay)
+ const dayVoids=daily.filter(p=>p.status==='void')
+ const dayResults=[...dayGraded,...dayVoids]
  const dayWins=dayGraded.filter(p=>p.status==='win').length
  const dayLosses=dayGraded.filter(p=>p.status==='loss').length
  const selectedMonth=selectedDay.slice(0,7)
  const monthPicks=validPicks.filter(p=>p.date.startsWith(selectedMonth))
  const monthGraded=validPicks.filter(p=>p.date.startsWith(selectedMonth)&&(p.status==='win'||p.status==='loss'))
  const monthWins=monthGraded.filter(p=>p.status==='win').length
+ const monthVoids=monthPicks.filter(p=>p.status==='void').length
  const lastDays=[...new Set(completePicks.map(p=>p.date))].sort().reverse().slice(0,10)
  const visiblePick=validPicks.find(p=>p.id===selectedPick&&p.date===selectedDay)||validPicks.find(p=>p.date===selectedDay)||null
  const dayLabel=(day:string)=>new Date(day+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
@@ -323,14 +343,14 @@ function App(){
       <h2 className="pl-panel-heading">Completed Picks — {dayLabel(selectedDay)}</h2>
       <div className="pl-feature-strip pl-feature-three"><div><span>Tracked Results</span><strong>{dayGraded.length}</strong></div><div><span>Hit Rate</span><strong className="pl-green">{hit(dayWins,dayGraded.length)}</strong></div><div><span>Record</span><strong>{dayGraded.length?dayWins+' – '+dayLosses:'—'}</strong></div></div>
       <div className="pl-table-wrap"><table className="pl-table"><thead><tr><th>Player</th><th>Market</th><th>Pick</th><th>Actual</th><th>Result</th></tr></thead><tbody>
-       {dayGraded.length===0?<tr><td colSpan={5} className="pl-empty-row">No tracked picks have a verified win or loss for this date.</td></tr>:dayGraded.map(p=><tr key={p.id}><td className="pl-player-cell"><div className="pl-player-with-promo"><strong>{p.player}</strong>{isTacoPick(p)&&<TacoBadge/>}</div><small>vs {p.opponent}{!p.lockedAt?" · Watchlist":""}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':'pl-loss')}>{p.status==='win'?'HIT / WIN':'MISS / LOSS'}</span></td></tr>)}
+       {dayResults.length===0?<tr><td colSpan={5} className="pl-empty-row">No tracked picks have a verified result for this date.</td></tr>:dayResults.map(p=><tr key={p.id}><td className="pl-player-cell"><div className="pl-player-with-promo"><strong>{p.player}</strong>{isTacoPick(p)&&<TacoBadge/>}</div><small>vs {p.opponent}{!p.lockedAt?" · Watchlist":""}</small></td><td>{p.market}</td><td>{p.side==='More'?'O':'U'} {p.line}</td><td>{p.status==='void'?'DNP':p.actual??'—'}</td><td><span className={'pl-result-pill '+(p.status==='win'?'pl-win':p.status==='void'?'pl-void':'pl-loss')}>{p.status==='win'?'HIT / WIN':p.status==='void'?'VOID':'MISS / LOSS'}</span></td></tr>)}
       </tbody></table></div>
       {daily.some(p=>!p.lockedAt)&&<div className="pl-watchlist-caption">Unverified watchlist picks are included in these daily tracked results but excluded from official locked-model accuracy.</div>}
      </section>
      <section className="pl-panel">
       <h2 className="pl-panel-heading">Monthly Summary — {monthLabel}</h2>
       <div className="pl-summary-four"><div><span>Tracked Results</span><strong>{monthGraded.length}</strong></div><div><span>Wins</span><strong className="pl-green">{monthWins}</strong></div><div><span>Losses</span><strong className="pl-red">{monthGraded.length-monthWins}</strong></div><div className="pl-highlight"><span>Hit Rate</span><strong className="pl-green">{hit(monthWins,monthGraded.length)}</strong></div></div>
-      <div className="pl-month-foot">{monthPicks.length-monthGraded.length} additional tracked picks are pending, pushed or voided.</div>
+      <div className="pl-month-foot">{monthVoids} voided · {monthPicks.length-monthGraded.length-monthVoids} pending or pushed. Voids excluded from hit rate.</div>
      </section>
     </div>
    </div>}
@@ -350,7 +370,7 @@ function App(){
      <h2 className="pl-panel-heading">Pick Details</h2>
      {!visiblePick?<div className="pl-empty-details"><Target size={45}/>Select a pick to view research, trends and matchup statistics.</div>:<>
       <div className="pl-details-head"><div><h3 className="pl-details-player-name">{visiblePick.player}{isTacoPick(visiblePick)&&<TacoBadge/>}</h3><p>{visiblePick.market} · vs {visiblePick.opponent} · {dayLabel(visiblePick.date)}</p></div><div className="pl-details-actions">{!visiblePick.lockedAt&&visiblePick.status!=='win'&&visiblePick.status!=='loss'&&<button className="pl-add-btn" onClick={()=>lock(visiblePick)}>Lock Pick</button>}<button className="pl-square pl-edit" onClick={()=>start(visiblePick)}>{visiblePick.lockedAt?'Notes':'Edit'}</button></div></div>
-      <div className="pl-feature-strip pl-feature-four"><div><span>Line</span><strong>{visiblePick.line}</strong></div><div><span>Projection</span><strong className={projectionTone(visiblePick,visiblePick.projection??historicalBaseline(visiblePick,insightFeed))}>{(visiblePick.projection??historicalBaseline(visiblePick,insightFeed))?.toFixed(1)??'—'}</strong></div><div><span>Edge</span><strong className="pl-green">{visiblePick.projection!==null?(visiblePick.side==='More'?visiblePick.projection-visiblePick.line:visiblePick.line-visiblePick.projection).toFixed(1):'—'}</strong></div><div><span>Result</span><strong className={visiblePick.status==='win'?'pl-green':visiblePick.status==='loss'?'pl-red':''}>{visiblePick.status==='win'?'WIN':visiblePick.status==='loss'?'LOSS':visiblePick.lockedAt?'LOCKED':'DRAFT'}</strong></div></div>
+      <div className="pl-feature-strip pl-feature-four"><div><span>Line</span><strong>{visiblePick.line}</strong></div><div><span>Projection</span><strong className={projectionTone(visiblePick,visiblePick.projection??historicalBaseline(visiblePick,insightFeed))}>{(visiblePick.projection??historicalBaseline(visiblePick,insightFeed))?.toFixed(1)??'—'}</strong></div><div><span>Edge</span><strong className="pl-green">{visiblePick.projection!==null?(visiblePick.side==='More'?visiblePick.projection-visiblePick.line:visiblePick.line-visiblePick.projection).toFixed(1):'—'}</strong></div><div><span>Result</span><strong className={visiblePick.status==='win'?'pl-green':visiblePick.status==='loss'?'pl-red':''}>{visiblePick.status==='win'?'WIN':visiblePick.status==='loss'?'LOSS':visiblePick.status==='void'?'VOID':visiblePick.lockedAt?'LOCKED':'DRAFT'}</strong></div></div>
       <PickInsights key={visiblePick.id} pick={visiblePick} data={insightFeed} state={insightState}/>
       {visiblePick.correctionNotes&&<div className="pl-correction">Postgame notes: {visiblePick.correctionNotes}</div>}
      </>}
