@@ -11,13 +11,15 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -32,6 +34,14 @@ jobs:
           GITHUB_PAGES: 'true'
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - name: Verify the latest tracking fixes are included in the website bundle
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          grep -R -l 'propledger-nov17-repair-v2' dist/assets/*.js >/dev/null
+          grep -R -l 'Refresh Results' dist/assets/*.js >/dev/null
+          grep -R -l 'Luka Doncic' dist/assets/*.js >/dev/null
+          echo "Verified: November 17 repair, refresh control and Luka player data are bundled."
       - name: Upload built website
         uses: actions/upload-pages-artifact@v3
         with:
