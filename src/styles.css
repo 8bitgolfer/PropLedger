@@ -240,3 +240,6 @@ button{cursor:pointer}
 .pl-results-sync .pl-add-btn{min-height:39px;flex-shrink:0}
 .pl-results-sync>span{color:#98a8b0;font-size:11px;line-height:1.35;text-align:right}
 @media(max-width:500px){.pl-results-sync{flex-wrap:wrap}.pl-results-sync>span{text-align:left}}
+
+/* Completed-pick DNP/void rows: show outcomes without counting them as losses. */
+.pl-result-pill.pl-void{background:#28333d;color:#d9e2e7;border-color:#80909c}
