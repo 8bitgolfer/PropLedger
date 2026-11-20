@@ -4,6 +4,8 @@ import { NOV17_WATCHLIST } from './nov17Watchlist'
 import { NOV17_FINAL_RESULTS } from './nov17Verified'
 import { NOV18_WATCHLIST } from './nov18Watchlist'
 import { NOV18_FINAL_RESULTS } from './nov18Verified'
+import { NOV19_WATCHLIST } from './nov19Watchlist'
+import { NOV19_FINAL_RESULTS } from './nov19Verified'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
 import { Activity, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, Download, FileUp, Plus, RefreshCw, Target, Trash2, X } from 'lucide-react'
 
@@ -14,6 +16,7 @@ const KEY = 'propledger-v1'
 const NOV17_IMPORT_KEY = 'propledger-nov17-discussion-v1'
 const NOV17_REPAIR_KEY = 'propledger-nov17-repair-v2'
 const NOV18_IMPORT_KEY = 'propledger-nov18-discussion-v1'
+const NOV19_IMPORT_KEY = 'propledger-nov19-discussion-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
 type ScheduleGame = { id: string; date: string; tipoff: string; teams: Team[]; completed: boolean }
@@ -57,7 +60,7 @@ function reconcileKnownResults(rows:Pick[]):Pick[]{
  const graded=rows.map(p=>{
   // Preserve manual grades and historical finals. Never turn void into loss.
   if(p.actual!==null||p.status==='win'||p.status==='loss'||p.status==='push'||p.status==='void')return p
-  const verified=[...NOV17_FINAL_RESULTS,...NOV18_FINAL_RESULTS].find(r=>
+  const verified=[...NOV17_FINAL_RESULTS,...NOV18_FINAL_RESULTS,...NOV19_FINAL_RESULTS].find(r=>
    p.date===r.date&&normalize(p.player)===normalize(r.player)&&
    p.market===r.market&&p.side===r.side&&p.line===r.line
   )
@@ -86,6 +89,14 @@ function mergeNov18Watchlist(rows:Pick[]):Pick[]{
  ).map(p=>({...p} as Pick))
  return additions.length?[...additions,...rows]:rows
 }
+function mergeNov19Watchlist(rows:Pick[]):Pick[]{
+ const ids=new Set(rows.map(p=>p.id))
+ const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+ const additions=NOV19_WATCHLIST.filter(p=>
+  !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+ ).map(p=>({...p} as Pick))
+ return additions.length?[...additions,...rows]:rows
+}
 function load():Pick[]{
  try{
   const raw=localStorage.getItem(KEY)
@@ -103,6 +114,11 @@ function load():Pick[]{
   if(localStorage.getItem(NOV18_IMPORT_KEY)!=='done'){
    merged=mergeNov18Watchlist(merged)
    localStorage.setItem(NOV18_IMPORT_KEY,'done')
+  }
+  // November 19 research selections are imported only once, preserving later deletions.
+  if(localStorage.getItem(NOV19_IMPORT_KEY)!=='done'){
+   merged=mergeNov19Watchlist(merged)
+   localStorage.setItem(NOV19_IMPORT_KEY,'done')
   }
   const graded=reconcileKnownResults(merged)
   if(graded!==current)localStorage.setItem(KEY,JSON.stringify(graded))
