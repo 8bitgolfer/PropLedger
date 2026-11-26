@@ -391,16 +391,20 @@ function App(){
       {calendarCells.map((date,i)=>{
        if(!date||new Date(date+'T12:00:00')<startBoundary)return <div className="pl-day is-empty" key={'empty-'+i}>{date?<span>{Number(date.slice(-2))}</span>:null}</div>
        const rows=gradeByDay(date)
+       const tracked=resultsByDay(date)
        const wins=rows.filter(p=>p.status==='win').length
-       const pending=resultsByDay(date).filter(p=>p.status==='pending'||p.status==='watchlist').length
+       const pending=tracked.filter(p=>p.status==='pending'||p.status==='watchlist').length
+       // Mark only elapsed dates without any tracked picks. Do not mark
+       // today's unfinished slate, future dates, or days containing voids.
+       const noPicks=tracked.length===0&&date<nowDate()
        const tone=resultTone(wins,rows.length)
-       return <button key={date} className={'pl-day '+(date===selectedDay?'is-selected ':'')+tone} onClick={()=>setSelectedDay(date)} aria-label={date+' '+wins+' of '+rows.length+' graded picks won'}>
+       return <button key={date} className={'pl-day '+(date===selectedDay?'is-selected ':'')+(noPicks?'is-no-picks ':'')+tone} onClick={()=>setSelectedDay(date)} aria-label={noPicks?date+' no picks tracked':date+' '+wins+' of '+rows.length+' graded picks won'}>
         <span className="pl-day-number">{Number(date.slice(-2))}</span>
-        {rows.length>0?<span className="pl-day-record">{wins}/{rows.length}<small>({hit(wins,rows.length)})</small></span>:pending>0?<span className="pl-day-pending">{pending} ungraded</span>:<span className="pl-day-dash">—</span>}
+        {rows.length>0?<span className="pl-day-record">{wins}/{rows.length}<small>({hit(wins,rows.length)})</small></span>:pending>0?<span className="pl-day-pending">{pending} ungraded</span>:noPicks?<span className="pl-day-no-picks"><X size={24} strokeWidth={3}/><small>NO PICKS</small></span>:<span className="pl-day-dash">—</span>}
        </button>
       })}
      </div>
-     <p className="pl-panel-note">Tracking begins November 16, 2026. This calendar includes verified watchlist outcomes; official model performance in Analytics counts only pregame-locked predictions.</p>
+     <p className="pl-panel-note">Tracking begins November 16, 2026. An X means no picks were tracked that past day (not a loss). Calendar records include verified watchlist outcomes; only pregame-locked predictions count toward official model performance in Analytics.</p>
     </section>
     <div className="pl-stack">
      <section className="pl-panel">
