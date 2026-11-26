@@ -8,6 +8,8 @@ import { NOV19_WATCHLIST } from './nov19Watchlist'
 import { NOV19_FINAL_RESULTS } from './nov19Verified'
 import { NOV20_WATCHLIST } from './nov20Watchlist'
 import { NOV20_FINAL_RESULTS } from './nov20Verified'
+import { NOV24_WATCHLIST } from './nov24Watchlist'
+import { NOV24_FINAL_RESULTS } from './nov24Verified'
 import { NOV25_WATCHLIST } from './nov25Watchlist'
 import { NOV25_FINAL_RESULTS } from './nov25Verified'
 import PickInsights, { historicalBaseline, type InsightFeed } from './PickInsights'
@@ -22,6 +24,7 @@ const NOV17_REPAIR_KEY = 'propledger-nov17-repair-v2'
 const NOV18_IMPORT_KEY = 'propledger-nov18-discussion-v1'
 const NOV19_IMPORT_KEY = 'propledger-nov19-discussion-v1'
 const NOV20_IMPORT_KEY = 'propledger-nov20-discussion-v1'
+const NOV24_IMPORT_KEY = 'propledger-nov24-discussion-v1'
 const NOV25_IMPORT_KEY = 'propledger-nov25-discussion-v1'
 type NBAPlayer = { id: string; name: string; team: string; teamId?: string; points: number; rebounds: number; assists: number; threes: number; steals: number | null; blocks: number | null; pra: number; pa: number; pr: number; ra: number }
 type Team = { id: string; abbreviation: string; name: string }
@@ -66,7 +69,7 @@ function reconcileKnownResults(rows:Pick[]):Pick[]{
  const graded=rows.map(p=>{
   // Preserve manual grades and historical finals. Never turn void into loss.
   if(p.actual!==null||p.status==='win'||p.status==='loss'||p.status==='push'||p.status==='void')return p
-  const verified=[...NOV17_FINAL_RESULTS,...NOV18_FINAL_RESULTS,...NOV19_FINAL_RESULTS,...NOV20_FINAL_RESULTS,...NOV25_FINAL_RESULTS].find(r=>
+  const verified=[...NOV17_FINAL_RESULTS,...NOV18_FINAL_RESULTS,...NOV19_FINAL_RESULTS,...NOV20_FINAL_RESULTS,...NOV24_FINAL_RESULTS,...NOV25_FINAL_RESULTS].find(r=>
    p.date===r.date&&normalize(p.player)===normalize(r.player)&&
    p.market===r.market&&p.side===r.side&&p.line===r.line
   )
@@ -111,6 +114,14 @@ function mergeNov20Watchlist(rows:Pick[]):Pick[]{
  ).map(p=>({...p} as Pick))
  return additions.length?[...additions,...rows]:rows
 }
+function mergeNov24Watchlist(rows:Pick[]):Pick[]{
+ const ids=new Set(rows.map(p=>p.id))
+ const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
+ const additions=NOV24_WATCHLIST.filter(p=>
+  !ids.has(p.id)&&!lines.has([p.date,normalize(p.player),p.market,p.side,p.line].join('|'))
+ ).map(p=>({...p} as Pick))
+ return additions.length?[...additions,...rows]:rows
+}
 function mergeNov25Watchlist(rows:Pick[]):Pick[]{
  const ids=new Set(rows.map(p=>p.id))
  const lines=new Set(rows.map(p=>[p.date,normalize(p.player),p.market,p.side,p.line].join('|')))
@@ -146,6 +157,11 @@ function load():Pick[]{
   if(localStorage.getItem(NOV20_IMPORT_KEY)!=='done'){
    merged=mergeNov20Watchlist(merged)
    localStorage.setItem(NOV20_IMPORT_KEY,'done')
+  }
+  // Historical November 24 backfill runs once and does not overwrite user-created picks.
+  if(localStorage.getItem(NOV24_IMPORT_KEY)!=='done'){
+   merged=mergeNov24Watchlist(merged)
+   localStorage.setItem(NOV24_IMPORT_KEY,'done')
   }
   // Import November 25 only once; keep user deletions and manual records intact.
   if(localStorage.getItem(NOV25_IMPORT_KEY)!=='done'){
