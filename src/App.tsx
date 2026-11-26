@@ -394,9 +394,9 @@ function App(){
        const tracked=resultsByDay(date)
        const wins=rows.filter(p=>p.status==='win').length
        const pending=tracked.filter(p=>p.status==='pending'||p.status==='watchlist').length
-       // Mark only elapsed dates without any tracked picks. Do not mark
-       // today's unfinished slate, future dates, or days containing voids.
-       const noPicks=tracked.length===0&&date<nowDate()
+       // Mark elapsed dates without picks, plus Thanksgiving Nov 26 (no NBA slate).
+       // Never mark future dates or days containing tracked picks/voids.
+       const noPicks=tracked.length===0&&(date<nowDate()||date==='2026-11-26'&&date===nowDate())
        const tone=resultTone(wins,rows.length)
        return <button key={date} className={'pl-day '+(date===selectedDay?'is-selected ':'')+(noPicks?'is-no-picks ':'')+tone} onClick={()=>setSelectedDay(date)} aria-label={noPicks?date+' no picks tracked':date+' '+wins+' of '+rows.length+' graded picks won'}>
         <span className="pl-day-number">{Number(date.slice(-2))}</span>
